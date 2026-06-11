@@ -11,9 +11,12 @@ frontend/   Vite + React SPA — all memory math runs client-side, instant inter
 backend/    FastAPI — proxies/normalizes the Hugging Face Hub API, caches in SQLite
 ```
 
-- `GET /api/trending` — top text-generation models by HF `trendingScore`, enriched with
-  param counts (`safetensors.total` / `gguf.total`) and real architecture from `config.json`.
-  The list refreshes every 6 hours.
+- `GET /api/trending` — the front-page blend: live HF `trendingScore` first, then a
+  curated list of famous staples (flagship open-weight families + the GGUF mirrors people
+  actually run) and HF's most-downloaded / most-liked text-generation models, deduped and
+  enriched with param counts (`safetensors.total` / `gguf.total`) and real architecture
+  from `config.json`. The list refreshes every 6 hours; a rate-limited (partial) refresh
+  is served but never cached.
 - `GET /api/search?q=…` — HF model search, enriched the same way. Cached **30 days**.
 - `GET /api/model/{org}/{name}` — resolve one repo (pasted URL). Cached **30 days**.
 
@@ -30,6 +33,13 @@ Hugging Face is unreachable or rate-limits, stale entries are served instead of 
 if the backend itself is down, the frontend falls back to a curated offline list.
 
 Set `HF_TOKEN` in the environment to lift anonymous rate limits (500 req / 5 min).
+
+Before going live, build a cache baseline (trending blend + family searches + common
+GGUF mirrors, paced to respect rate limits — takes a few minutes, safe to re-run):
+
+```sh
+cd backend && .venv/bin/python scripts/warm_cache.py
+```
 
 ## Running it
 

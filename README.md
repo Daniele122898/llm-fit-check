@@ -17,6 +17,14 @@ backend/    FastAPI — proxies/normalizes the Hugging Face Hub API, caches in S
 - `GET /api/search?q=…` — HF model search, enriched the same way. Cached **30 days**.
 - `GET /api/model/{org}/{name}` — resolve one repo (pasted URL). Cached **30 days**.
 
+For **GGUF repos**, two extras come along (both also cached 30 days, never re-fetched):
+the repo file tree gives the **exact byte size of every published quant** (llama.cpp
+mmaps the file wholesale, so file size = weights footprint; multi-part shards are
+summed), and a **~128 KB HTTP-range read of one file's GGUF header** yields the true
+architecture (layers / heads / KV heads / head_dim / context, MLA and sliding-window
+keys) — which works even when the base model's `config.json` is gated. The whole file is
+never downloaded.
+
 Per-model metadata and searches sit in `backend/data/fitcheck.db` (SQLite, WAL). When
 Hugging Face is unreachable or rate-limits, stale entries are served instead of failing;
 if the backend itself is down, the frontend falls back to a curated offline list.
@@ -54,8 +62,10 @@ cd frontend && npm run build
 `total = weights + KV cache + compute buffer + fixed runtime overhead`, following what
 llama.cpp / Ollama / the NyxKrage calculator actually compute:
 
-- **Weights** = params × effective bits-per-weight ÷ 8. Bpw values are file-level
-  effective sizes (Q4_K_M ≈ 4.85, Q6_K ≈ 6.59 …), not theoretical block sizes.
+- **Weights** = the repo's real GGUF file size when the selected quant is published
+  (marked "real file" in the UI), otherwise params × effective bits-per-weight ÷ 8.
+  Bpw values are file-level effective sizes (Q4_K_M ≈ 4.85, Q6_K ≈ 6.59 …), not
+  theoretical block sizes.
 - **KV cache** = 2 × layers × **kv_heads** × head_dim × bytes × tokens — GQA-aware, with
   real `config.json` values per model. Two researched exceptions are handled:
   **MLA** (DeepSeek V2/V3/R1: a single compressed latent per layer, ~28× smaller) and

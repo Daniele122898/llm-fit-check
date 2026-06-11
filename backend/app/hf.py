@@ -18,16 +18,27 @@ import re
 
 import httpx
 
-from .archparse import estimate_arch, parse_hf_config
+from .archparse import arch_from_gguf, estimate_arch, parse_hf_config
+from .cache import TTL_30D_S, UNUSABLE
+from .gguf import parse_gguf_meta
 
 HF_BASE = "https://huggingface.co"
 USER_AGENT = "fitcheck/0.1.0; httpx; (local LLM memory-fit calculator)"
 
 DEFAULT_CTX_MAX = 32768
 
+# Progressive prefix sizes for GGUF header reads. The architecture keys sit
+# before the tokenizer arrays, so the first step almost always suffices.
+GGUF_RANGE_STEPS = [128 * 1024, 1024 * 1024, 8 * 1024 * 1024]
+
 _MOE_NAME_RE = re.compile(r"(\d+)\s*x\s*(\d+(?:\.\d+)?)\s*b\b", re.I)
 _PARAMS_NAME_RE = re.compile(r"(\d+(?:\.\d+)?)\s*b\b", re.I)
 _QUANT_SUFFIX_RE = re.compile(r"[-_](GGUF|GPTQ|AWQ|EXL2|MLX|bnb[-_]4bit|4bit|8bit)$", re.I)
+_GGUF_SHARD_RE = re.compile(r"-(\d{5})-of-(\d{5})\.gguf$", re.I)
+_GGUF_QUANT_RE = re.compile(
+    r"(IQ[1-4]_[A-Z0-9]+(?:_[A-Z0-9]+)?|Q[2-8]_K_[SML]|Q[2-8]_K|Q[2-8]_[01]|BF16|FP16|F16|F32)(?=[.\-_ ]|$)",
+    re.I,
+)
 
 
 class HfError(Exception):
@@ -59,8 +70,51 @@ def _base_model_of(info: dict):
     return base if isinstance(base, str) and base.count("/") == 1 else None
 
 
+def group_gguf_files(tree: list[dict]) -> list[dict]:
+    """Collapse a repo file listing into one entry per published quant.
+
+    Multi-part shards (-00001-of-00003.gguf) are summed into their group;
+    vision projectors (mmproj-*) are skipped. The header parse later reads
+    from `path`, which for shards points at part 00001 (headers live there).
+    Returns entries sorted by size: {quant, sizeBytes, parts, path}.
+    """
+    groups: dict[str, dict] = {}
+    for item in tree:
+        if item.get("type") != "file":
+            continue
+        path = item.get("path", "")
+        fname = path.rsplit("/", 1)[-1]
+        if not fname.lower().endswith(".gguf") or fname.lower().startswith("mmproj"):
+            continue
+        size = (item.get("lfs") or {}).get("size") or item.get("size") or 0
+        shard = _GGUF_SHARD_RE.search(fname)
+        key = path[: shard.start()] if shard else path[:-len(".gguf")]
+        g = groups.setdefault(key, {"sizeBytes": 0, "parts": 0, "path": path})
+        g["sizeBytes"] += size
+        g["parts"] += 1
+        if shard and shard.group(1) == "00001":
+            g["path"] = path
+
+    out = []
+    for key, g in groups.items():
+        qm = _GGUF_QUANT_RE.search(key.rsplit("/", 1)[-1])
+        if not qm or g["sizeBytes"] <= 0:
+            continue
+        quant = qm.group(1).upper()
+        if quant == "FP16":
+            quant = "F16"
+        out.append({"quant": quant, "sizeBytes": g["sizeBytes"], "parts": g["parts"], "path": g["path"]})
+    out.sort(key=lambda f: f["sizeBytes"])
+
+    # Same quant published twice (root + subfolder): keep the first (smallest).
+    seen: dict[str, dict] = {}
+    for f in out:
+        seen.setdefault(f["quant"], f)
+    return list(seen.values())
+
+
 class HfClient:
-    def __init__(self):
+    def __init__(self, cache=None):
         headers = {"user-agent": USER_AGENT}
         token = os.environ.get("HF_TOKEN")
         if token:
@@ -69,6 +123,7 @@ class HfClient:
             base_url=HF_BASE, headers=headers, timeout=20.0, follow_redirects=True
         )
         self._sem = asyncio.Semaphore(8)
+        self._cache = cache  # used for gguf-header:{repo} entries (30-day)
 
     async def aclose(self):
         await self._client.aclose()
@@ -107,6 +162,76 @@ class HfClient:
         except ValueError:
             return None
 
+    async def repo_tree(self, repo_id: str) -> list[dict]:
+        """File listing with sizes. Follows pagination a couple of pages —
+        GGUF repos rarely exceed one."""
+        items: list[dict] = []
+        url = f"/api/models/{repo_id}/tree/main"
+        params = {"recursive": "true"}
+        for _ in range(3):
+            r = await self._get(url, params=params)
+            if r.status_code != 200:
+                break
+            items.extend(r.json())
+            nxt = r.links.get("next", {}).get("url")
+            if not nxt:
+                break
+            url, params = nxt, None
+        return items
+
+    async def read_file_prefix(self, repo_id: str, path: str, size: int):
+        """First `size` bytes of a repo file via a Range request (resolver
+        URLs sit in HF's high rate-limit bucket). None on 4xx. Reads at most
+        `size` bytes even if a server ignores Range and answers 200."""
+        headers = {"range": f"bytes=0-{size - 1}"}
+        async with self._sem:
+            async with self._client.stream(
+                "GET", f"/{repo_id}/resolve/main/{path}", headers=headers
+            ) as r:
+                if r.status_code not in (200, 206):
+                    return None
+                chunks, got = [], 0
+                async for chunk in r.aiter_bytes():
+                    chunks.append(chunk)
+                    got += len(chunk)
+                    if got >= size:
+                        break
+        return b"".join(chunks)[:size]
+
+    async def gguf_header_arch(self, repo_id: str, files: list[dict]):
+        """Architecture from the GGUF file header (cached 30 days per repo).
+
+        Range-fetches a progressively larger prefix of the smallest quant
+        file until the architecture keys parse out. Network errors propagate
+        (so transient failures aren't negative-cached); a genuinely
+        unparseable file is cached as unusable.
+        """
+        key = f"gguf-header:{repo_id.lower()}"
+        if self._cache is not None:
+            payload, age = self._cache.get(key)
+            if payload is not None and age < TTL_30D_S:
+                return None if payload == UNUSABLE else payload
+
+        arch = None
+        target = files[0]["path"]
+        for step in GGUF_RANGE_STEPS:
+            buf = await self.read_file_prefix(repo_id, target, step)
+            if buf is None:
+                break
+            try:
+                meta, complete = parse_gguf_meta(buf)
+            except ValueError:
+                break
+            arch = arch_from_gguf(meta)
+            if arch is not None or complete or len(buf) < step:
+                break
+
+        if arch is not None:
+            arch["fromFile"] = target
+        if self._cache is not None:
+            self._cache.put(key, "gguf-header", arch if arch is not None else UNUSABLE)
+        return arch
+
     async def enrich(self, repo_id: str):
         """Resolve one repo into the normalized model shape the frontend uses.
 
@@ -131,27 +256,47 @@ class HfClient:
         if not params_b:
             return None
 
-        # Real architecture from config.json; for GGUF/quant repos fall back to
-        # the base model's config; last resort is a size-based estimate.
-        arch, arch_from, estimated = None, None, True
+        # GGUF repos: real per-quant file sizes from the (cheap) tree listing.
+        gguf_files: list[dict] = []
+        if gguf:
+            try:
+                gguf_files = group_gguf_files(await self.repo_tree(canonical_id))
+            except (HfError, httpx.HTTPError):
+                pass  # sizes are a bonus — never fail enrichment over them
+
+        # Architecture, most authoritative source first: the repo's own
+        # config.json, the GGUF file header (works even when the base model
+        # is gated), the base model's config, then a size-based estimate.
+        arch, arch_from, arch_source = None, None, "estimate"
         cfg = await self.file_json(canonical_id, "config.json")
         if cfg:
             arch = parse_hf_config(cfg)
+            arch_source = "config" if arch else arch_source
+        if arch is None and gguf_files:
+            try:
+                arch = await self.gguf_header_arch(canonical_id, gguf_files)
+            except httpx.HTTPError:
+                arch = None
+            if arch is not None:
+                arch_from = arch.pop("fromFile", None)
+                arch_source = "gguf"
         if arch is None:
             base = _base_model_of(info)
             if base and base.lower() != canonical_id.lower():
                 base_cfg = await self.file_json(base, "config.json")
                 if base_cfg:
                     arch = parse_hf_config(base_cfg)
-                    arch_from = base if arch else None
-        if arch is not None:
-            estimated = False
-        else:
+                    if arch is not None:
+                        arch_from = base
+                        arch_source = "base"
+        estimated = arch is None
+        if arch is None:
             arch = estimate_arch(params_b)
 
         ctx_max = arch.pop("ctxMax", None) or gguf.get("context_length") or DEFAULT_CTX_MAX
         moe = arch.pop("moe", False) or bool(_MOE_NAME_RE.search(canonical_id))
         arch.pop("modelType", None)
+        arch.pop("fromFile", None)
 
         model = {
             "id": canonical_id,
@@ -173,5 +318,7 @@ class HfClient:
             "likes": info.get("likes"),
             "estimated": estimated,
             "archFrom": arch_from,
+            "archSource": arch_source,
+            "ggufFiles": gguf_files or None,
         }
         return model

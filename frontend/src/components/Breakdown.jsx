@@ -1,7 +1,7 @@
 import React from "react";
 import { Icon, ICONS, HeadroomBar, Stat } from "./primitives.jsx";
 import { QUANTS, QUANT_BY_ID } from "../lib/quants.js";
-import { estimate, verdict, bestQuantThatFits, maxContext, capacity } from "../lib/calc.js";
+import { estimate, verdict, bestQuantThatFits, maxContext, capacity, GIB } from "../lib/calc.js";
 import { fmtGB, fmtGBval, fmtTokens, fmtCtx } from "../lib/format.js";
 
 // Everything a row needs, in one place. Context is clamped to the model's
@@ -24,7 +24,10 @@ export function Breakdown({ model, s, hw, setQuant }) {
     <div className="bd">
       <div className="bd-bar">
         <div className="bd-bar-head">
-          <span>Memory at {quantLabel} · {fmtCtx(ctx)} ctx{ctxClamped ? " (model max)" : ""}</span>
+          <span>
+            Memory at {quantLabel} · {fmtCtx(ctx)} ctx{ctxClamped ? " (model max)" : ""}
+            {est.realWeights && <span className="real-tag" title="Weights use the exact published file size, not an estimate">real file</span>}
+          </span>
           <span className="bd-bar-tot">{fmtGB(est.total)} <i>/ {fmtGBval(avail)} GB</i></span>
         </div>
         <HeadroomBar weights={est.weights} kv={est.kv} overhead={est.overhead} available={avail} height={16} />
@@ -55,8 +58,8 @@ export function Breakdown({ model, s, hw, setQuant }) {
             const tight = !fits && e.total <= avail;
             return (
               <button key={q.id} className={"qbtn" + (s.quantId === q.id ? " on" : "")}
-                onClick={() => setQuant(q.id)} title={q.note}>
-                <span className="qbtn-lab">{q.label}</span>
+                onClick={() => setQuant(q.id)} title={q.note + (e.realWeights ? " (real file size)" : "")}>
+                <span className="qbtn-lab">{q.label}{e.realWeights ? "*" : ""}</span>
                 <span className="qbtn-gb">{fmtGBval(e.total)}</span>
                 <span className="qbtn-dot" style={{ background: fits ? "var(--green)" : tight ? "var(--amber)" : "var(--red)" }} />
               </button>
@@ -65,10 +68,33 @@ export function Breakdown({ model, s, hw, setQuant }) {
         </div>
       </div>
 
+      {model.ggufFiles?.length > 0 && (
+        <div className="bd-quants">
+          <div className="bd-quants-label">Published in this repo — exact file sizes, with KV + overhead at {fmtCtx(ctx)} ctx</div>
+          <div className="bd-quants-row">
+            {model.ggufFiles.map((f) => {
+              const total = f.sizeBytes / GIB + est.kv + est.overhead;
+              const fits = total <= avail * (1 - s.margin);
+              const tight = !fits && total <= avail;
+              return (
+                <div key={f.quant} className="qbtn qbtn-static" title={f.path + (f.parts > 1 ? ` (${f.parts} parts)` : "")}>
+                  <span className="qbtn-lab">{f.quant}</span>
+                  <span className="qbtn-gb">{fmtGBval(total)}</span>
+                  <span className="qbtn-dot" style={{ background: fits ? "var(--green)" : tight ? "var(--amber)" : "var(--red)" }} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {model.estimated && (
         <div className="bd-est-note"><Icon d={ICONS.tight} size={14} /> Architecture estimated from parameter count — real model may differ.</div>
       )}
-      {!model.estimated && model.archFrom && (
+      {model.archSource === "gguf" && (
+        <div className="bd-arch-note">Architecture read from the GGUF file header{model.archFrom ? ` (${model.archFrom.split("/").pop()})` : ""}.</div>
+      )}
+      {model.archSource === "base" && model.archFrom && (
         <div className="bd-arch-note">Architecture read from base model {model.archFrom}.</div>
       )}
       {model.moe && (

@@ -13,6 +13,12 @@ from pathlib import Path
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "fitcheck.db"
 
+TTL_30D_S = 30 * 24 * 3600
+
+# Negative-cache marker shared by every kind, so un-resolvable repos /
+# unparseable GGUF headers aren't retried for the full TTL either.
+UNUSABLE = {"unusable": True}
+
 # Anything older than this is deleted on startup — stale-on-error fallback
 # has diminishing value once the data is months old.
 PURGE_AFTER_S = 60 * 24 * 3600

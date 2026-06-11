@@ -49,12 +49,23 @@ function kvPrecBytes(kvPrecId) {
   return (KV_PRECISIONS.find((k) => k.id === kvPrecId) || KV_PRECISIONS[0]).bytes;
 }
 
-// Full estimate (GiB) for a model at a quant + context.
+// The repo's published GGUF file for one of our quant presets, if any.
+// FP16 maps onto whichever full-precision file the repo ships.
+export function publishedQuantFile(model, quantId) {
+  if (!model.ggufFiles?.length) return null;
+  const want = quantId === "FP16" ? ["F16", "BF16", "F32"] : [quantId];
+  return model.ggufFiles.find((f) => want.includes(f.quant)) || null;
+}
+
+// Full estimate (GiB) for a model at a quant + context. When the repo
+// publishes a GGUF file for this quant, its exact size is used for the
+// weights (llama.cpp mmaps the file wholesale) instead of bpw math —
+// `realWeights` reports which one you got.
 export function estimate(model, quantId, context, kvPrecId = "f16") {
-  const bpw = QUANT_BY_ID[quantId].bpw;
   const kvBytes = kvPrecBytes(kvPrecId);
   const ctx = Math.max(0, context);
-  const w = weightsBytes(model.params, bpw);
+  const file = publishedQuantFile(model, quantId);
+  const w = file ? file.sizeBytes : weightsBytes(model.params, QUANT_BY_ID[quantId].bpw);
   const kv = kvTotalBytes(model, ctx, kvBytes);
   const oh = graphBytes(model, ctx) + FIXED_OVERHEAD_BYTES;
   return {
@@ -63,6 +74,7 @@ export function estimate(model, quantId, context, kvPrecId = "f16") {
     overhead: oh / GIB,
     total: (w + kv + oh) / GIB,
     kvPerTokenKiB: kvPerTokenBytes(model, kvBytes) / 1024,
+    realWeights: !!file,
   };
 }
 

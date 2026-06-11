@@ -22,14 +22,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .cache import Cache
+from .cache import Cache, TTL_30D_S, UNUSABLE
 from .hf import HfClient, HfError
 
-MODEL_TTL_S = 30 * 24 * 3600   # 30 days
-SEARCH_TTL_S = 30 * 24 * 3600  # 30 days
+MODEL_TTL_S = TTL_30D_S        # 30 days
+SEARCH_TTL_S = TTL_30D_S       # 30 days
 TRENDING_TTL_S = 6 * 3600      # 6 hours
-
-UNUSABLE = {"unusable": True}  # negative-cache marker for un-sizeable repos
 
 cache: Cache
 hf: HfClient
@@ -40,7 +38,7 @@ async def lifespan(app: FastAPI):
     global cache, hf
     cache = Cache()
     cache.purge_old()
-    hf = HfClient()
+    hf = HfClient(cache=cache)
     yield
     await hf.aclose()
     cache.close()

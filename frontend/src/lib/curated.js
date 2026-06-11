@@ -1,0 +1,26 @@
+// Curated fallback list, shown when the backend / Hugging Face is
+// unreachable. Architecture numbers are real (from each model's config.json).
+export const CURATED_MODELS = [
+  { id: "meta-llama/Llama-3.2-1B-Instruct",  name: "Llama 3.2 1B Instruct",   org: "Meta",       params: 1.24, layers: 16,  heads: 32,  kvHeads: 8,  headDim: 64,  ctxMax: 131072, downloads: 1900000, likes: 1100, trend: 14 },
+  { id: "Qwen/Qwen2.5-0.5B-Instruct",        name: "Qwen2.5 0.5B Instruct",   org: "Alibaba",    params: 0.49, layers: 24,  heads: 14,  kvHeads: 2,  headDim: 64,  ctxMax: 32768,  downloads: 820000,  likes: 540,  trend: 22 },
+  { id: "meta-llama/Llama-3.2-3B-Instruct",  name: "Llama 3.2 3B Instruct",   org: "Meta",       params: 3.21, layers: 28,  heads: 24,  kvHeads: 8,  headDim: 128, ctxMax: 131072, downloads: 2600000, likes: 1400, trend: 9 },
+  { id: "microsoft/Phi-3.5-mini-instruct",   name: "Phi-3.5-mini Instruct",   org: "Microsoft",  params: 3.82, layers: 32,  heads: 32,  kvHeads: 32, headDim: 96,  ctxMax: 131072, downloads: 1100000, likes: 760,  trend: 16 },
+  { id: "google/gemma-2-2b-it",              name: "Gemma 2 2B",              org: "Google",     params: 2.61, layers: 26,  heads: 8,   kvHeads: 4,  headDim: 256, ctxMax: 8192,   downloads: 1300000, likes: 690,  trend: 19, swa: { window: 4096, swaLayers: 13 } },
+  { id: "mistralai/Mistral-7B-Instruct-v0.3",name: "Mistral 7B Instruct v0.3",org: "Mistral AI", params: 7.25, layers: 32,  heads: 32,  kvHeads: 8,  headDim: 128, ctxMax: 32768,  downloads: 3400000, likes: 2600, trend: 11 },
+  { id: "meta-llama/Llama-3.1-8B-Instruct",  name: "Llama 3.1 8B Instruct",   org: "Meta",       params: 8.03, layers: 32,  heads: 32,  kvHeads: 8,  headDim: 128, ctxMax: 131072, downloads: 5800000, likes: 3900, trend: 2 },
+  { id: "Qwen/Qwen2.5-7B-Instruct",          name: "Qwen2.5 7B Instruct",     org: "Alibaba",    params: 7.62, layers: 28,  heads: 28,  kvHeads: 4,  headDim: 128, ctxMax: 131072, downloads: 4200000, likes: 2100, trend: 4 },
+  { id: "Qwen/Qwen2.5-Coder-7B-Instruct",    name: "Qwen2.5-Coder 7B",        org: "Alibaba",    params: 7.62, layers: 28,  heads: 28,  kvHeads: 4,  headDim: 128, ctxMax: 131072, downloads: 2900000, likes: 1850, trend: 7 },
+  { id: "google/gemma-2-9b-it",              name: "Gemma 2 9B",              org: "Google",     params: 9.24, layers: 42,  heads: 16,  kvHeads: 8,  headDim: 256, ctxMax: 8192,   downloads: 2200000, likes: 1500, trend: 12, swa: { window: 4096, swaLayers: 21 } },
+  { id: "microsoft/phi-4",                   name: "Phi-4 14B",               org: "Microsoft",  params: 14.7, layers: 40,  heads: 40,  kvHeads: 10, headDim: 128, ctxMax: 16384,  downloads: 1700000, likes: 2400, trend: 5 },
+  { id: "Qwen/Qwen2.5-14B-Instruct",         name: "Qwen2.5 14B Instruct",    org: "Alibaba",    params: 14.7, layers: 48,  heads: 40,  kvHeads: 8,  headDim: 128, ctxMax: 131072, downloads: 1900000, likes: 1300, trend: 10 },
+  { id: "mistralai/Mistral-Small-24B-Instruct-2501", name: "Mistral Small 24B (2501)", org: "Mistral AI", params: 23.6, layers: 40, heads: 32, kvHeads: 8, headDim: 128, ctxMax: 32768, downloads: 1400000, likes: 2200, trend: 6 },
+  { id: "google/gemma-2-27b-it",             name: "Gemma 2 27B",             org: "Google",     params: 27.2, layers: 46,  heads: 32,  kvHeads: 16, headDim: 128, ctxMax: 8192,   downloads: 1200000, likes: 1700, trend: 13, swa: { window: 4096, swaLayers: 23 } },
+  { id: "Qwen/Qwen2.5-32B-Instruct",         name: "Qwen2.5 32B Instruct",    org: "Alibaba",    params: 32.5, layers: 64,  heads: 40,  kvHeads: 8,  headDim: 128, ctxMax: 131072, downloads: 1100000, likes: 1450, trend: 8 },
+  { id: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B", name: "DeepSeek-R1 Distill 32B", org: "DeepSeek", params: 32.8, layers: 64, heads: 40, kvHeads: 8, headDim: 128, ctxMax: 131072, downloads: 3100000, likes: 4200, trend: 1 },
+  { id: "01-ai/Yi-1.5-34B-Chat",             name: "Yi 1.5 34B Chat",         org: "01.AI",      params: 34.4, layers: 60,  heads: 56,  kvHeads: 8,  headDim: 128, ctxMax: 32768,  downloads: 640000,  likes: 880,  trend: 21 },
+  { id: "CohereForAI/c4ai-command-r-08-2024",name: "Command R 35B (08-2024)", org: "Cohere",     params: 35.0, layers: 40,  heads: 64,  kvHeads: 8,  headDim: 128, ctxMax: 131072, downloads: 720000,  likes: 1100, trend: 18 },
+  { id: "mistralai/Mixtral-8x7B-Instruct-v0.1", name: "Mixtral 8x7B Instruct", org: "Mistral AI", params: 46.7, layers: 32, heads: 32, kvHeads: 8, headDim: 128, ctxMax: 32768, downloads: 2000000, likes: 4100, trend: 15, moe: true },
+  { id: "meta-llama/Llama-3.3-70B-Instruct", name: "Llama 3.3 70B Instruct",  org: "Meta",       params: 70.6, layers: 80,  heads: 64,  kvHeads: 8,  headDim: 128, ctxMax: 131072, downloads: 4600000, likes: 5200, trend: 3 },
+  { id: "Qwen/Qwen2.5-72B-Instruct",         name: "Qwen2.5 72B Instruct",    org: "Alibaba",    params: 72.7, layers: 80,  heads: 64,  kvHeads: 8,  headDim: 128, ctxMax: 131072, downloads: 1800000, likes: 2900, trend: 17 },
+  { id: "meta-llama/Llama-3.1-405B-Instruct",name: "Llama 3.1 405B Instruct", org: "Meta",       params: 405,  layers: 126, heads: 128, kvHeads: 8,  headDim: 128, ctxMax: 131072, downloads: 900000,  likes: 3500, trend: 20 },
+].map((m) => ({ ...m, repo: m.id, curated: true }));

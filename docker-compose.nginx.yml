@@ -3,6 +3,12 @@
 #
 #   docker compose -f docker-compose.nginx.yml up -d --build
 #
+# Optional self-hosted analytics (Umami, also localhost-only; nginx proxies
+# /u.js and /api/send to it so tracking is same-origin and CSP stays strict):
+#
+#   docker compose -f docker-compose.nginx.yml --profile analytics up -d
+#
+# Requires UMAMI_DB_PASSWORD and UMAMI_APP_SECRET in .env (never committed).
 services:
   app:
     build: .
@@ -15,3 +21,30 @@ services:
       - ./data:/data
     ports:
       - "127.0.0.1:8400:8400"
+
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    profiles: [analytics]
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
+      - DATABASE_TYPE=postgresql
+      - APP_SECRET=${UMAMI_APP_SECRET}
+    depends_on:
+      - umami-db
+    ports:
+      - "127.0.0.1:3001:3000"
+
+  umami-db:
+    image: postgres:16-alpine
+    profiles: [analytics]
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=umami
+      - POSTGRES_USER=umami
+      - POSTGRES_PASSWORD=${UMAMI_DB_PASSWORD}
+    volumes:
+      - umami_db:/var/lib/postgresql/data
+
+volumes:
+  umami_db:

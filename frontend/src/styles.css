@@ -437,7 +437,8 @@ body[data-density="compact"] .trow td { padding: 8px 14px; }
 }
 @media (max-width: 560px) {
   .app { padding: 0 14px 48px; }
-  .topbar { flex-wrap: wrap; gap: 10px; }
+  .topbar { flex-wrap: wrap; gap: 16px; padding-bottom: 14px; }
+  .topbar-right { width: 100%; } /* hardware chip on its own row, clear of the brand */
   .tabbar-hint { display: none; }
   .controls { flex-direction: column; align-items: stretch; gap: 16px; }
   .seg { overflow-x: auto; }

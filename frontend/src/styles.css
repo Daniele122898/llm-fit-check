@@ -302,6 +302,8 @@ a { color: var(--accent-text); text-decoration: none; }
 .preset-name { font-weight: 600; font-size: 13.5px; }
 .preset-mem { font-size: 11.5px; color: var(--text-faint); font-family: var(--mono); }
 .cpu-block, .manual-block { display: flex; flex-direction: column; gap: 18px; }
+.man-type { display: flex; flex-direction: column; gap: 8px; }
+.man-type label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .muted-note { font-size: 12.5px; color: var(--text-faint); margin: 0; line-height: 1.5; }
 .muted-note b { color: var(--text-muted); }
 .man-row { display: flex; flex-direction: column; gap: 11px; }
@@ -350,7 +352,11 @@ a { color: var(--accent-text); text-decoration: none; }
 .ci-quant-note { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
 .ci-quant-note b { color: var(--text); }
 .ci-ctx { font-size: 14px; color: var(--accent-text); font-weight: 700; white-space: nowrap; }
-.ci-scale { display: flex; justify-content: space-between; font-size: 9.5px; font-family: var(--mono); color: var(--text-faint); }
+/* Labels are centered on the slider's actual thumb stops (i/(n-1) across the
+   travel range), not space-between'd — variable-width labels would drift. The
+   side margins match half the thumb width so the ends line up too. */
+.ci-scale { position: relative; height: 14px; margin: 0 8px; font-size: 9.5px; font-family: var(--mono); color: var(--text-faint); }
+.ci-scale span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
 .ci-scale .on { color: var(--accent-text); font-weight: 700; }
 .adv-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); padding: 4px 0; }
 .adv-toggle:hover { color: var(--text); }

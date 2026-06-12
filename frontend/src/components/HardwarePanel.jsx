@@ -109,11 +109,21 @@ export function HardwarePanel({ hw, onChange, onClose, margin, onMargin }) {
 
   const pickPreset = (v, p) => {
     if (v === "apple") onChange({ type: "apple", name: p.name.split(" · ")[0], vram: p.vram, ram: p.unified, freeRam: null });
-    else onChange({ type: v === "amd" ? "amd" : "gpu", name: p.name, vram: p.vram, ram: hw.ram || 32, freeRam: hw.freeRam ?? null });
+    else onChange({ type: v === "amd" ? "amd" : "gpu", name: p.name, vram: p.vram, ram: p.ram || hw.ram || 32, freeRam: hw.freeRam ?? null });
   };
 
   const free = hw.freeRam ?? hw.ram;
   const setFree = (v) => onChange({ ...hw, freeRam: v >= hw.ram ? null : v });
+
+  // Manual mode can model any machine — carry the RAM over when switching.
+  const manualType = hw.type === "amd" ? "gpu" : hw.type;
+  const switchType = (t) => {
+    if (t === manualType) return;
+    const ram = hw.ram || 32;
+    if (t === "gpu") onChange({ type: "gpu", name: "Custom GPU", vram: 16, ram, freeRam: null });
+    else if (t === "apple") onChange({ type: "apple", name: "Unified · " + ram + "GB", vram: metalBudget(ram), ram, freeRam: null });
+    else onChange({ type: "cpu", name: "CPU · " + ram + "GB RAM", vram: 0, ram, freeRam: null });
+  };
 
   return (
     <div className="modal-scrim" onMouseDown={onClose}>
@@ -138,7 +148,7 @@ export function HardwarePanel({ hw, onChange, onClose, margin, onMargin }) {
           {mode === "preset" && (
             <div>
               <div className="vendor-tabs">
-                {[["gpu", "NVIDIA"], ["apple", "Apple"], ["amd", "AMD"], ["cpu", "CPU only"]].map(([v, l]) => (
+                {[["gpu", "NVIDIA"], ["apple", "Apple"], ["amd", "AMD"], ["intel", "Intel"], ["cpu", "CPU only"]].map(([v, l]) => (
                   <button key={v} className={"vtab" + (vendor === v ? " on" : "")} onClick={() => setVendor(v)}>{l}</button>
                 ))}
               </div>
@@ -156,33 +166,49 @@ export function HardwarePanel({ hw, onChange, onClose, margin, onMargin }) {
 
           {mode === "manual" && (
             <div className="manual-block">
+              <div className="man-type">
+                <label>System type</label>
+                <Segmented size="sm" value={manualType} onChange={switchType} options={[
+                  { id: "gpu", label: "Discrete GPU" }, { id: "apple", label: "Unified memory" }, { id: "cpu", label: "CPU only" },
+                ]} />
+              </div>
+
               {(hw.type === "gpu" || hw.type === "amd") && (
                 <>
                   <ManualRow label="GPU VRAM" value={hw.vram} min={2} max={200} step={1} unit="GB"
                     onChange={(v) => onChange({ ...hw, name: hw.detected ? hw.name : "Custom GPU", vram: v })} />
-                  <ManualRow label="System RAM" value={hw.ram} min={4} max={512} step={4} unit="GB"
+                  <ManualRow label="System RAM" value={hw.ram} min={4} max={1024} step={4} unit="GB"
                     onChange={(v) => onChange({ ...hw, ram: v, freeRam: hw.freeRam != null ? Math.min(hw.freeRam, v) : null })} />
                   <ManualRow label="Free system RAM right now" value={free} min={2} max={hw.ram} step={1} unit="GB"
                     onChange={setFree}
-                    hint="The OS and your open apps already hold part of your RAM. This caps how much a too-big model could spill into (CPU offload)." />
+                    hint="The OS and your open apps already hold part of your RAM. This caps how much a too-big model could spill into." />
+                  <label className="chk">
+                    <input type="checkbox" checked={hw.allowOffload !== false}
+                      onChange={(e) => onChange({ ...hw, allowOffload: e.target.checked })} />
+                    <span>Consider CPU offload — models too big for VRAM can spill into free system RAM (runs, but slowly)</span>
+                  </label>
                 </>
               )}
               {hw.type === "apple" && (
                 <>
                   <ManualRow label="Total unified memory" value={hw.ram} min={8} max={512} step={4} unit="GB"
-                    onChange={(v) => onChange({ ...hw, ram: v, vram: metalBudget(v), freeRam: hw.freeRam != null ? Math.min(hw.freeRam, v) : null })} />
+                    onChange={(v) => onChange({
+                      ...hw, ram: v, vram: metalBudget(v),
+                      name: /^Unified ·/.test(hw.name) ? "Unified · " + v + "GB" : hw.name,
+                      freeRam: hw.freeRam != null ? Math.min(hw.freeRam, v) : null,
+                    })} />
                   <ManualRow label="Actually free memory right now" value={free} min={2} max={hw.ram} step={1} unit="GB"
                     onChange={setFree}
-                    hint="macOS and your open apps use part of the total by default — set what's realistically free for a model." />
+                    hint="The OS and your open apps use part of the total by default — set what's realistically free for a model." />
                   <p className="muted-note">
-                    macOS lets the GPU wire ~{hw.ram >= 36 ? "3/4" : "2/3"} of unified memory ({fmtGBval(metalBudget(hw.ram))} GB here).
+                    On Apple Silicon, macOS lets the GPU wire ~{hw.ram >= 36 ? "3/4" : "2/3"} of unified memory ({fmtGBval(metalBudget(hw.ram))} GB here).
                     Models are checked against the smaller of that and your free memory: <b>{fmtGBval(capacity(hw))} GB</b>.
                   </p>
                 </>
               )}
               {hw.type === "cpu" && (
                 <>
-                  <ManualRow label="System RAM" value={hw.ram} min={4} max={512} step={4} unit="GB"
+                  <ManualRow label="System RAM" value={hw.ram} min={4} max={1024} step={4} unit="GB"
                     onChange={(v) => onChange({ ...hw, name: "CPU · " + v + "GB RAM", ram: v, freeRam: hw.freeRam != null ? Math.min(hw.freeRam, v) : null })} />
                   <ManualRow label="Actually free RAM right now" value={free} min={2} max={hw.ram} step={1} unit="GB"
                     onChange={setFree}

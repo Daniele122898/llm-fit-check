@@ -103,8 +103,9 @@ export function capacity(hw) {
 
 // Spare system RAM a discrete GPU could spill layers into (CPU offload).
 // Unified/CPU systems have a single pool — nothing extra to spill into.
+// Users can switch offload consideration off entirely (hw.allowOffload).
 export function spillCapacity(hw) {
-  if (hw.type === "apple" || hw.type === "cpu") return 0;
+  if (hw.type === "apple" || hw.type === "cpu" || hw.allowOffload === false) return 0;
   const free = hw.freeRam ?? hw.ram ?? 0;
   return Math.max(0, Math.min(hw.ram ?? 0, free));
 }

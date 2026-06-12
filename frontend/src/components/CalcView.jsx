@@ -79,7 +79,12 @@ export function CalcView({ hw, defaultQuant, margin }) {
             </div>
             <input type="range" className="slider" min={0} max={CTX_STEPS.length - 1} step={1} value={ctxIdx}
               onChange={(e) => setCtxIdx(Number(e.target.value))} />
-            <div className="ci-scale">{CTX_STEPS.map((c, i) => <span key={c} className={i === ctxIdx ? "on" : ""}>{fmtCtxStep(c)}</span>)}</div>
+            <div className="ci-scale">
+              {CTX_STEPS.map((c, i) => (
+                <span key={c} className={i === ctxIdx ? "on" : ""}
+                  style={{ left: (i / (CTX_STEPS.length - 1)) * 100 + "%" }}>{fmtCtxStep(c)}</span>
+              ))}
+            </div>
           </div>
 
           <button className="adv-toggle" onClick={() => setAdvanced(!advanced)}>
@@ -153,6 +158,12 @@ export function CalcView({ hw, defaultQuant, margin }) {
               <div className="co-foot-item">
                 <Icon d={ICONS.cpu} size={15} />
                 <span>~{fmtGB(v.spill)} would spill into system RAM — it runs, but expect a steep slowdown.</span>
+              </div>
+            )}
+            {autoArch && (
+              <div className="co-foot-item">
+                <Icon d={ICONS.tight} size={15} />
+                <span>Generic {kvHeads}-KV-head architecture assumed — real models differ (Qwen2.5 7B uses 4, halving KV growth). Tune it under <b>Advanced</b>.</span>
               </div>
             )}
           </div>

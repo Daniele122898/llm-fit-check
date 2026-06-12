@@ -3,13 +3,59 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>LLM Fit Check — will the model run?</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<title>LLM Fit Check — VRAM & RAM Calculator for Local LLMs</title>
+<meta name="description" content="Check if any LLM fits in your GPU VRAM, Apple unified memory or RAM. Live Hugging Face model data, exact GGUF quant sizes, KV-cache math and a free memory calculator." />
+<link rel="canonical" href="https://llmfitcheck.com/" />
+<meta name="theme-color" content="#2f6bff" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="LLM Fit Check" />
+<meta property="og:title" content="LLM Fit Check — will the model run on your box?" />
+<meta property="og:description" content="Check if any LLM fits in your GPU VRAM, Apple unified memory or RAM. Live Hugging Face data, exact GGUF quant sizes and KV-cache math." />
+<meta property="og:url" content="https://llmfitcheck.com/" />
+<meta property="og:image" content="https://llmfitcheck.com/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="LLM Fit Check — VRAM and RAM calculator for local LLMs" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="LLM Fit Check — will the model run on your box?" />
+<meta name="twitter:description" content="Check if any LLM fits in your GPU VRAM, Apple unified memory or RAM. Live Hugging Face data, exact GGUF quant sizes and KV-cache math." />
+<meta name="twitter:image" content="https://llmfitcheck.com/og-image.png" />
+
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<link rel="preload" href="/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="/fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "LLM Fit Check",
+  "url": "https://llmfitcheck.com/",
+  "description": "Free calculator that checks whether a large language model fits in your GPU VRAM, Apple unified memory or system RAM — using live Hugging Face model data, real GGUF quantization file sizes and architecture-aware KV-cache math.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Any",
+  "browserRequirements": "Requires JavaScript",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Person", "name": "ArgonautDev", "url": "https://github.com/Daniele122898" }
+}
+</script>
 </head>
 <body data-density="comfortable">
 <div id="root"></div>
+<noscript>
+  <main style="max-width:680px;margin:48px auto;padding:0 20px;font-family:system-ui,sans-serif;line-height:1.6">
+    <h1>LLM Fit Check</h1>
+    <p>A free calculator that checks whether a large language model fits in your GPU VRAM, Apple
+    unified memory or system RAM. It pulls live model data from Hugging Face (parameter counts,
+    real GGUF quantization file sizes, architecture), computes GQA/MLA-aware KV-cache and
+    compute-buffer memory at your context length, and gives a green / yellow / red fit verdict
+    for your hardware. JavaScript is required to run the calculator.</p>
+  </main>
+</noscript>
 <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

@@ -6,12 +6,17 @@ stale entries are kept so they can be served when Hugging Face is unreachable.
 """
 
 import json
+import os
 import sqlite3
 import threading
 import time
 from pathlib import Path
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "fitcheck.db"
+# Overridable for deployments (e.g. a mounted volume in Docker).
+DEFAULT_DB_PATH = Path(
+    os.environ.get("FITCHECK_DB")
+    or Path(__file__).resolve().parent.parent / "data" / "fitcheck.db"
+)
 
 TTL_30D_S = 30 * 24 * 3600
 
@@ -29,6 +34,8 @@ class Cache:
         path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
+        # Tolerate a second writer (multi-worker deployments, warm script).
+        self._conn.execute("PRAGMA busy_timeout=5000")
         self._conn.execute(
             """CREATE TABLE IF NOT EXISTS cache (
                 key        TEXT PRIMARY KEY,

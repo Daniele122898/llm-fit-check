@@ -27,5 +27,6 @@ export function searchModels(q) {
 }
 
 export function resolveRepo(repo) {
-  return getJSON(`/api/model/${repo}`);
+  const path = repo.split("/").map(encodeURIComponent).join("/");
+  return getJSON(`/api/model/${path}`);
 }

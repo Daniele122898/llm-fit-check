@@ -13,18 +13,22 @@ us, stale cache entries are served instead of failing.
 """
 
 import asyncio
+import os
 import re
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from collections import deque
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .cache import Cache, TTL_30D_S, UNUSABLE
-from .hf import HfClient, HfError
+from .hf import HfClient, HfError, is_valid_repo_id
 
 MODEL_TTL_S = TTL_30D_S        # 30 days
 SEARCH_TTL_S = TTL_30D_S       # 30 days
@@ -50,9 +54,47 @@ app = FastAPI(title="FitCheck", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["*"],
+    allow_methods=["GET"],  # the API is read-only
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+# --- abuse guard: per-IP sliding window on /api/ ------------------------------
+# Each uncached /api/model hit costs us Hugging Face quota and a cache row, so
+# cap clients well above any legitimate browsing rate. Run uvicorn with
+# --proxy-headers behind the reverse proxy so request.client is the real IP.
+RATE_LIMIT = 120
+RATE_WINDOW_S = 60.0
+_rate: dict[str, deque] = {}
+
+CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+    "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+)
+
+
+@app.middleware("http")
+async def guard(request: Request, call_next):
+    if request.url.path.startswith("/api/"):
+        ip = request.client.host if request.client else "unknown"
+        now = time.monotonic()
+        window = _rate.setdefault(ip, deque())
+        while window and now - window[0] > RATE_WINDOW_S:
+            window.popleft()
+        if len(window) >= RATE_LIMIT:
+            return JSONResponse({"detail": "Rate limit exceeded — slow down."}, status_code=429,
+                                headers={"retry-after": "60"})
+        window.append(now)
+        if len(_rate) > 20000:  # bound memory under address churn
+            for key in [k for k, dq in _rate.items() if not dq][:10000]:
+                _rate.pop(key, None)
+
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Content-Security-Policy", CSP)
+    return response
 
 
 async def get_model_cached(repo_id: str):
@@ -243,8 +285,8 @@ async def search(q: str = Query(min_length=1, max_length=200),
 @app.get("/api/model/{repo_id:path}")
 async def model(repo_id: str):
     repo_id = repo_id.strip().strip("/")
-    if repo_id.count("/") != 1:
-        raise HTTPException(400, "Expected org/name.")
+    if not is_valid_repo_id(repo_id):
+        raise HTTPException(400, "Expected a Hugging Face org/name repo id.")
     try:
         m = await get_model_cached(repo_id)
     except HfError as e:
@@ -258,7 +300,23 @@ async def model(repo_id: str):
     return {"models": [m], "fetchedAt": int(time.time())}
 
 
+class CachedStaticFiles(StaticFiles):
+    """Vite assets are content-hashed — cache them forever. Everything else
+    (index.html, robots.txt, ...) must revalidate so deploys take effect."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if path.startswith("assets/") or path.startswith("fonts/"):
+            response.headers["cache-control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["cache-control"] = "no-cache"
+        return response
+
+
 # Serve the built frontend when it exists (mounted last so /api wins).
-_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+_DIST = Path(
+    os.environ.get("FITCHECK_DIST")
+    or Path(__file__).resolve().parents[2] / "frontend" / "dist"
+)
 if _DIST.is_dir():
-    app.mount("/", StaticFiles(directory=_DIST, html=True), name="frontend")
+    app.mount("/", CachedStaticFiles(directory=_DIST, html=True), name="frontend")

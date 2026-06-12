@@ -14,6 +14,7 @@ everything already cached costs nothing.
 Usage: python scripts/warm_cache.py [base_url]
 """
 
+import os
 import sqlite3
 import sys
 import time
@@ -22,7 +23,8 @@ from pathlib import Path
 import httpx
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8400"
-DB = Path(__file__).resolve().parent.parent / "data" / "fitcheck.db"
+DB = Path(os.environ.get("FITCHECK_DB")
+          or Path(__file__).resolve().parent.parent / "data" / "fitcheck.db")
 
 SEARCHES = [
     "llama", "qwen", "deepseek", "gemma", "mistral",

@@ -15,6 +15,7 @@ Set HF_TOKEN in the environment to lift anonymous rate limits (500 req/5min).
 import asyncio
 import os
 import re
+from urllib.parse import quote
 
 import httpx
 
@@ -47,6 +48,16 @@ class HfError(Exception):
         self.status = status
 
 
+# Hugging Face repo ids: org/name, each segment alphanumeric plus . _ -
+# Everything we interpolate into request paths must satisfy this — it rules
+# out traversal dots-segments, query/fragment characters and absolute URLs.
+REPO_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+def is_valid_repo_id(repo_id: str) -> bool:
+    return bool(REPO_ID_RE.match(repo_id)) and ".." not in repo_id
+
+
 def params_from_name(s: str):
     """Parse a parameter count in billions out of a repo name, e.g. '8x7B'."""
     moe = _MOE_NAME_RE.search(s)
@@ -67,7 +78,7 @@ def _base_model_of(info: dict):
     base = (info.get("cardData") or {}).get("base_model")
     if isinstance(base, list):
         base = base[0] if base else None
-    return base if isinstance(base, str) and base.count("/") == 1 else None
+    return base if isinstance(base, str) and is_valid_repo_id(base) else None
 
 
 def group_gguf_files(tree: list[dict]) -> list[dict]:
@@ -184,9 +195,10 @@ class HfClient:
         URLs sit in HF's high rate-limit bucket). None on 4xx. Reads at most
         `size` bytes even if a server ignores Range and answers 200."""
         headers = {"range": f"bytes=0-{size - 1}"}
+        safe_path = quote(path, safe="/")  # tree paths may hold spaces etc.
         async with self._sem:
             async with self._client.stream(
-                "GET", f"/{repo_id}/resolve/main/{path}", headers=headers
+                "GET", f"/{repo_id}/resolve/main/{safe_path}", headers=headers
             ) as r:
                 if r.status_code not in (200, 206):
                     return None
@@ -206,6 +218,8 @@ class HfClient:
         (so transient failures aren't negative-cached); a genuinely
         unparseable file is cached as unusable.
         """
+        if not is_valid_repo_id(repo_id):
+            return None
         key = f"gguf-header:{repo_id.lower()}"
         if self._cache is not None:
             payload, age = self._cache.get(key)
@@ -239,8 +253,12 @@ class HfClient:
         safetensors metadata, GGUF metadata, or the repo name).
         Raises HfError (404 etc.) when the repo doesn't exist.
         """
+        if not is_valid_repo_id(repo_id):
+            raise HfError(404, f"invalid repo id {repo_id!r}")
         info = await self.model_info(repo_id)
         canonical_id = info.get("id") or repo_id
+        if not is_valid_repo_id(canonical_id):
+            canonical_id = repo_id
 
         safetensors = info.get("safetensors") or {}
         gguf = info.get("gguf") or {}

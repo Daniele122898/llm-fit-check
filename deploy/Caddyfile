@@ -1,0 +1,12 @@
+llmfitcheck.com {
+	encode zstd gzip
+	reverse_proxy app:8400
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+}
+
+www.llmfitcheck.com {
+	redir https://llmfitcheck.com{uri} permanent
+}

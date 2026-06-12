@@ -3,6 +3,7 @@ import { Icon, ICONS } from "./components/icons.jsx";
 import { HardwareChip, HardwarePanel } from "./components/HardwarePanel.jsx";
 import { FitsView } from "./components/FitsView.jsx";
 import { CalcView } from "./components/CalcView.jsx";
+import { AboutSection } from "./components/AboutSection.jsx";
 import { defaultHw } from "./lib/hardware.js";
 
 function load(key, fallback) {
@@ -41,7 +42,7 @@ export default function App() {
         <div className="brand">
           <span className="brand-mark"><Icon d={ICONS.fit} size={18} sw={2.4} /></span>
           <div className="brand-text">
-            <span className="brand-name"><span className="brand-llm">LLM</span> Fit Check</span>
+            <h1 className="brand-name"><span className="brand-llm">LLM</span> Fit Check</h1>
             <span className="brand-tag">will the model run on your box?</span>
           </div>
         </div>
@@ -69,6 +70,8 @@ export default function App() {
           ? <FitsView s={s} setS={setSettings} hw={hw} layout={layout} setLayout={setLayout} />
           : <CalcView hw={hw} defaultQuant={settings.quantId} margin={margin / 100} />}
       </main>
+
+      <AboutSection />
 
       <footer className="foot-note">
         Estimates use llama.cpp-style quant sizes, GQA/MLA/sliding-window-aware KV-cache math and a compute-buffer

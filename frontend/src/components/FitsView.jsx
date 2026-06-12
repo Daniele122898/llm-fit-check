@@ -252,6 +252,12 @@ export function FitsView({ s, setS, hw, layout, setLayout }) {
           <input type="range" className="slider" min={0} max={CTX_STEPS.length - 1} step={1}
             value={Math.max(0, CTX_STEPS.indexOf(s.context))}
             onChange={(e) => setS((p) => ({ ...p, context: CTX_STEPS[Number(e.target.value)] }))} />
+          <div className="ci-scale">
+            {CTX_STEPS.map((c, i) => (
+              <span key={c} className={i === Math.max(0, CTX_STEPS.indexOf(s.context)) ? "on" : ""}
+                style={{ left: (i / (CTX_STEPS.length - 1)) * 100 + "%" }}>{fmtCtxStep(c)}</span>
+            ))}
+          </div>
         </div>
       </div>
 

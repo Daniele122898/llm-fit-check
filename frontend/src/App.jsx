@@ -41,7 +41,7 @@ export default function App() {
         <div className="brand">
           <span className="brand-mark"><Icon d={ICONS.fit} size={18} sw={2.4} /></span>
           <div className="brand-text">
-            <span className="brand-name">FitCheck</span>
+            <span className="brand-name"><span className="brand-llm">LLM</span> Fit Check</span>
             <span className="brand-tag">will the model run on your box?</span>
           </div>
         </div>

@@ -28,6 +28,9 @@ export default function App() {
     ...load("fitcheck_settings", {}),
   }));
 
+  // Reveal the static SEO/footer HTML (hidden for first paint — see index.html)
+  useEffect(() => { document.documentElement.classList.add("app-ready"); }, []);
+
   useEffect(() => persist("fitcheck_hw", hw), [hw]);
   useEffect(() => persist("fitcheck_layout", layout), [layout]);
   useEffect(() => persist("fitcheck_margin", margin), [margin]);

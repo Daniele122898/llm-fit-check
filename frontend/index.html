@@ -28,6 +28,11 @@
 <link rel="preload" href="/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="preload" href="/fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin />
 
+<!-- The static SEO section stays out of the first paint (it would flash above
+     the not-yet-mounted app); React reveals it on mount. Crawlers read the
+     HTML source either way. Inline so it also applies before dev-mode CSS. -->
+<style>.seo-static{display:none}html.app-ready .seo-static{display:block}</style>
+
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -76,7 +81,7 @@
 <!-- Static explainer/FAQ: real HTML on purpose. Google renders JS, but Bing is
      unreliable with it and AI search crawlers (GPTBot, ClaudeBot, PerplexityBot)
      don't execute JS at all — this is what they read and cite. -->
-<div class="app">
+<div class="app seo-static">
   <section class="about" aria-label="About LLM Fit Check">
     <h2>How LLM Fit Check works</h2>
     <p>

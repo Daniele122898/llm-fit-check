@@ -55,10 +55,10 @@ export default function App() {
 
       <div className="tabbar">
         <div className="tabs">
-          <button className={"tab" + (tab === "fits" ? " on" : "")} onClick={() => setTab("fits")}>
+          <button className={"tab" + (tab === "fits" ? " on" : "")} onClick={() => setTab("fits")} data-umami-event="tab-whatfits">
             <Icon d={ICONS.search} size={15} /> What fits
           </button>
-          <button className={"tab" + (tab === "calc" ? " on" : "")} onClick={() => setTab("calc")}>
+          <button className={"tab" + (tab === "calc" ? " on" : "")} onClick={() => setTab("calc")} data-umami-event="tab-calculator">
             <Icon d={ICONS.calc} size={15} /> Calculator
           </button>
         </div>

@@ -26,7 +26,8 @@ function ModelRow({ model, s, hw, expanded, onToggle, setQuant }) {
   const { est, v } = computeRow(model, s, hw);
   return (
     <div className={"row" + (expanded ? " open" : "")}>
-      <button className="row-main" onClick={onToggle}>
+      <button className="row-main" onClick={onToggle}
+        data-umami-event={expanded ? undefined : "model-expand"} data-umami-event-model={model.id}>
         <div className="row-id">
           <div className="row-name">{model.name}<ModelTags model={model} /></div>
           <div className="row-meta">
@@ -170,10 +171,12 @@ export function FitsView({ s, setS, hw, layout, setLayout }) {
           const d = await resolveRepo(repo);
           models = d.models;
           note = "from URL";
+          window.umami?.track("hf-url-resolve", { repo });
         } else {
           const d = await searchModels(q);
           models = d.models;
           note = `for “${q}”`;
+          window.umami?.track("search", { query: q.slice(0, 80), results: models.length });
           if (models.length === 0) {
             const synth = synthFromQuery(q);
             if (synth) models = [synth];

@@ -14,7 +14,7 @@ function memLabel(type) {
 
 export function HardwareChip({ hw, onClick }) {
   return (
-    <button className="hw-chip" onClick={onClick}>
+    <button className="hw-chip" onClick={onClick} data-umami-event="hardware-open">
       <span className="hw-chip-ic"><Icon d={hwIcon(hw.type)} size={17} /></span>
       <span className="hw-chip-body">
         <span className="hw-chip-name">{hw.name}</span>
@@ -56,7 +56,8 @@ function DetectBlock({ onApply }) {
           <div className="detect-title">Auto-detect this machine</div>
           <div className="detect-desc">Reads what your browser will share — GPU name, RAM, platform.</div>
         </div>
-        <button className={"btn btn-accent" + (state === "running" ? " busy" : "")} onClick={run} disabled={state === "running"}>
+        <button className={"btn btn-accent" + (state === "running" ? " busy" : "")} onClick={run} disabled={state === "running"}
+          data-umami-event="hardware-detect">
           <Icon d={state === "done" ? ICONS.refresh : ICONS.spark} size={15} />
           {state === "running" ? "Scanning…" : state === "done" ? "Re-scan" : "Scan"}
         </button>

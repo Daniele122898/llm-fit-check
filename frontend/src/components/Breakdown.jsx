@@ -58,7 +58,8 @@ export function Breakdown({ model, s, hw, setQuant }) {
             const tight = !fits && e.total <= avail;
             return (
               <button key={q.id} className={"qbtn" + (s.quantId === q.id ? " on" : "")}
-                onClick={() => setQuant(q.id)} title={q.note + (e.realWeights ? " (real file size)" : "")}>
+                onClick={() => setQuant(q.id)} title={q.note + (e.realWeights ? " (real file size)" : "")}
+                data-umami-event="quant-try" data-umami-event-quant={q.id}>
                 <span className="qbtn-lab">{q.label}{e.realWeights ? "*" : ""}</span>
                 <span className="qbtn-gb">{fmtGBval(e.total)}</span>
                 <span className="qbtn-dot" style={{ background: fits ? "var(--green)" : tight ? "var(--amber)" : "var(--red)" }} />

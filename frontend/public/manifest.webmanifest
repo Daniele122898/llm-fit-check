@@ -1,0 +1,13 @@
+{
+  "name": "LLM Fit Check",
+  "short_name": "LLM Fit Check",
+  "description": "Check if any LLM fits in your GPU VRAM, Apple unified memory or RAM.",
+  "start_url": "/",
+  "display": "browser",
+  "theme_color": "#2f6bff",
+  "background_color": "#f7f9fc",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

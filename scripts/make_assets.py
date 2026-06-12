@@ -56,19 +56,24 @@ def draw_mark(draw: ImageDraw.ImageDraw, x, y, size):
         draw.ellipse([p[0] - half, p[1] - half, p[0] + half, p[1] + half], fill=(255, 255, 255))
 
 
-def apple_touch_icon():
-    s = 180
-    img = Image.new("RGB", (s, s), ACCENT)
+def square_icon(s: int) -> Image.Image:
+    """Full-bleed mark for home-screen icons (the OS rounds the corners)."""
+    img = Image.blend(Image.new("RGB", (s, s), ACCENT), gradient((s, s), ACCENT, ACCENT_LIGHT), 0.6)
     draw = ImageDraw.Draw(img)
-    # subtle diagonal lighting like the SVG gradient
-    overlay = gradient((s, s), ACCENT, ACCENT_LIGHT)
-    img = Image.blend(img, overlay, 0.6)
-    draw = ImageDraw.Draw(img)
-    pts = [(48, 95), (79, 126), (133, 52)]
-    draw.line(pts, fill=(255, 255, 255), width=19, joint="curve")
+    pts = [(0.27 * s, 0.53 * s), (0.44 * s, 0.70 * s), (0.74 * s, 0.29 * s)]
+    draw.line(pts, fill=(255, 255, 255), width=max(3, round(s * 0.105)), joint="curve")
+    half = max(1, round(s * 0.05))
     for p in pts:
-        draw.ellipse([p[0] - 9, p[1] - 9, p[0] + 9, p[1] + 9], fill=(255, 255, 255))
-    img.save(PUBLIC / "apple-touch-icon.png")
+        draw.ellipse([p[0] - half, p[1] - half, p[0] + half, p[1] + half], fill=(255, 255, 255))
+    return img
+
+
+def icons():
+    square_icon(180).save(PUBLIC / "apple-touch-icon.png")
+    square_icon(192).save(PUBLIC / "icon-192.png")
+    square_icon(512).save(PUBLIC / "icon-512.png")
+    # .ico fallback: SVG favicons are still unsupported on iOS <= 18 Safari
+    square_icon(64).resize((32, 32), Image.LANCZOS).save(PUBLIC / "favicon.ico", sizes=[(32, 32)])
 
 
 def og_image():
@@ -102,7 +107,7 @@ def og_image():
 
 
 if __name__ == "__main__":
-    apple_touch_icon()
+    icons()
     og_image()
-    print("wrote", PUBLIC / "apple-touch-icon.png")
-    print("wrote", PUBLIC / "og-image.png")
+    for name in ("apple-touch-icon.png", "icon-192.png", "icon-512.png", "favicon.ico", "og-image.png"):
+        print("wrote", PUBLIC / name)

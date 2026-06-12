@@ -49,7 +49,20 @@ def parse_hf_config(cfg: dict):
         "headDim": int(head_dim),
         "ctxMax": c.get("max_position_embeddings") or c.get("n_positions"),
         "modelType": model_type,
+        "vocab": c.get("vocab_size"),
     }
+
+    # Hybrid SSM/attention models (Qwen3.5, LFM2.5, Qwen3-Next): only the
+    # full/sliding-attention layers carry a KV cache; linear-attention /
+    # mamba / conv layers hold a small constant state instead.
+    layer_types = c.get("layer_types")
+    if isinstance(layer_types, list) and layer_types:
+        kv_layers = sum(
+            1 for t in layer_types
+            if str(t) in ("attention", "full_attention") or "sliding" in str(t)
+        )
+        if 0 < kv_layers < out["layers"]:
+            out["kvLayers"] = kv_layers
 
     if c.get("kv_lora_rank"):
         out["mla"] = {

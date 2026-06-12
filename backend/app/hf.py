@@ -315,6 +315,8 @@ class HfClient:
         moe = arch.pop("moe", False) or bool(_MOE_NAME_RE.search(canonical_id))
         arch.pop("modelType", None)
         arch.pop("fromFile", None)
+        kv_layers = arch.pop("kvLayers", None)
+        vocab = arch.pop("vocab", None)
 
         model = {
             "id": canonical_id,
@@ -326,6 +328,8 @@ class HfClient:
             "heads": arch.get("heads"),
             "kvHeads": arch["kvHeads"],
             "headDim": arch["headDim"],
+            "kvLayers": kv_layers,
+            "vocab": vocab,
             "ctxMax": int(ctx_max),
             "mla": arch.get("mla"),
             "swa": arch.get("swa"),

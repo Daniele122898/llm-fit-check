@@ -81,8 +81,13 @@ llama.cpp / Ollama / the NyxKrage calculator actually compute:
   **MLA** (DeepSeek V2/V3/R1: a single compressed latent per layer, ~28× smaller) and
   **sliding-window attention** (Gemma 2/3, Mistral v0.1: windowed layers cache only
   `min(ctx, window)` tokens).
-- **Compute buffer** = `(ctx/1024 × 2 + 0.75) × attention_heads` MiB (empirical fit of
-  llama.cpp's graph buffer), plus ~0.5 GiB fixed (CUDA context / runtime baseline).
+- **Compute buffer** assumes **flash attention** (the llama.cpp/LM Studio/Ollama default
+  since late 2025): `vocab × 512 × 4 B` logits + `ctx × 512 × 2 B` mask + ~50 MiB — nearly
+  flat in context, validated against direct llama.cpp (b9430) measurements. The calculator
+  has an FA-off toggle that restores the materialized-KQ-matrix term
+  (`ctx × 512 × (heads+1) × 4 B`). Plus ~0.4 GiB fixed runtime overhead.
+- **Hybrid SSM models** (Qwen3.5/LFM2.5-class): only the attention layers carry KV cache —
+  parsed from `layer_types`, often 4–8× less KV than a dense transformer.
 - **MoE**: all parameters must be resident — active params only affect speed. The
   calculator has an "active params" field that says exactly that.
 

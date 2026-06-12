@@ -19,6 +19,7 @@ export function CalcView({ hw, defaultQuant, margin }) {
   const [quantId, setQuantId] = useState(defaultQuant || "Q4_K_M");
   const [ctxIdx, setCtxIdx] = useState(2); // 8192
   const [kvPrec, setKvPrec] = useState("f16");
+  const [fa, setFa] = useState(true);
   const [advanced, setAdvanced] = useState(false);
   const initialArch = estimateArch(8);
   const [layers, setLayers] = useState(initialArch.layers);
@@ -39,9 +40,9 @@ export function CalcView({ hw, defaultQuant, margin }) {
   const context = CTX_STEPS[ctxIdx];
   // Custom model: no known window, so allow the full slider range.
   const model = { params, layers, heads, kvHeads, headDim, ctxMax: CTX_STEPS[CTX_STEPS.length - 1], name: "custom" };
-  const est = estimate(model, quantId, context, kvPrec);
+  const est = estimate(model, quantId, context, kvPrec, fa);
   const v = verdict(est.total, hw, margin);
-  const mctx = maxContext(model, quantId, hw, margin, kvPrec);
+  const mctx = maxContext(model, quantId, hw, margin, kvPrec, fa);
   const avail = capacity(hw);
 
   return (
@@ -97,6 +98,17 @@ export function CalcView({ hw, defaultQuant, margin }) {
                 <label>KV cache precision</label>
                 <Segmented size="sm" value={kvPrec} onChange={setKvPrec} options={KV_PRECISIONS.map((k) => ({ id: k.id, label: k.label }))} />
               </div>
+              <div className="adv-row">
+                <label>Flash attention</label>
+                <Segmented size="sm" value={fa ? "on" : "off"} onChange={(val) => setFa(val === "on")}
+                  options={[{ id: "on", label: "On" }, { id: "off", label: "Off" }]} />
+              </div>
+              {!fa && (
+                <p className="muted-note tiny">
+                  Without flash attention the compute buffer materializes the full attention matrix and balloons with
+                  context. On is the llama.cpp / LM Studio / Ollama default since late 2025{kvPrec === "q8" ? "; quantized KV requires it" : ""}.
+                </p>
+              )}
               <div className="adv-row">
                 <label>Active params (MoE)</label>
                 <div className="ci-num sm"><input type="number" value={activeParams} min={0} max={params} step={0.1}

@@ -1,48 +1,63 @@
 // ============================================================================
-// Memory math. Formulas follow what llama.cpp / Ollama / the NyxKrage
-// calculator actually compute:
+// Memory math, validated against direct llama.cpp measurements (b9430):
 //
-//   total = weights + KV cache + graph buffer + fixed runtime overhead
+//   total = weights + KV cache + compute buffer + fixed runtime overhead
 //
-//   weights = params x effective_bpw / 8
-//   KV      = 2 x layers x kv_heads x head_dim x bytes x tokens   (GQA-aware)
-//             MLA models (DeepSeek): layers x (kv_lora_rank + rope_dim) x ...
-//             SWA models (Gemma/Mistral v0.1): windowed layers cache only
-//             min(tokens, window)
-//   graph   = (ctx/1024 x 2 + 0.75) x attention_heads MiB
-//             (NyxKrage's empirical fit of llama.cpp's compute buffer)
-//   fixed   = ~0.5 GiB (CUDA context / runtime baseline)
+//   weights = real GGUF file size when published, else params x bpw / 8
+//   KV      = 2 x kv_layers x kv_heads x head_dim x bytes x tokens, allocated
+//             upfront for the configured context (GQA-aware). Special cases:
+//             MLA (DeepSeek), sliding-window layers (Gemma: min(ctx, window)),
+//             hybrid SSM models (Qwen3.5-class: only some layers carry KV).
+//   compute = with flash attention (the default everywhere since llama.cpp
+//             b6325 / LM Studio 0.3.32): logits (vocab x ubatch x 4B) + f16
+//             KQ mask (ctx x ubatch x 2B) + ~50 MiB activations — near-flat
+//             in context. Without FA: the materialized f32 KQ matrix,
+//             ctx x ubatch x (heads+1) x 4B, which dwarfs everything at
+//             long context.
+//   fixed   = ~0.4 GiB (CUDA context / runtime baseline)
 // ============================================================================
 
 import { QUANT_BY_ID, KV_PRECISIONS } from "./quants.js";
 
 export const GIB = 1024 ** 3;
 const MIB = 1024 ** 2;
-const FIXED_OVERHEAD_BYTES = 0.5 * GIB;
+const UBATCH = 512; // llama.cpp default n_ubatch
+const DEFAULT_VOCAB = 128000;
+const FIXED_OVERHEAD_BYTES = 0.4 * GIB;
 
 export function weightsBytes(paramsB, bpw) {
   return (paramsB * 1e9 * bpw) / 8;
+}
+
+// Layers that actually hold a KV cache — hybrid SSM/attention models
+// (Qwen3.5, LFM2.5) only have attention on a fraction of layers.
+function kvLayerCount(model) {
+  return model.kvLayers ?? model.layers;
 }
 
 export function kvPerTokenBytes(model, kvBytes) {
   if (model.mla) {
     return model.layers * (model.mla.kvLoraRank + model.mla.qkRopeHeadDim) * kvBytes;
   }
-  return 2 * model.layers * model.kvHeads * model.headDim * kvBytes;
+  return 2 * kvLayerCount(model) * model.kvHeads * model.headDim * kvBytes;
 }
 
 export function kvTotalBytes(model, context, kvBytes) {
   if (!model.mla && model.swa?.window && model.swa.swaLayers > 0) {
     const perLayerToken = 2 * model.kvHeads * model.headDim * kvBytes;
-    const globalLayers = Math.max(0, model.layers - model.swa.swaLayers);
+    const globalLayers = Math.max(0, kvLayerCount(model) - model.swa.swaLayers);
     return perLayerToken * (globalLayers * context + model.swa.swaLayers * Math.min(context, model.swa.window));
   }
   return kvPerTokenBytes(model, kvBytes) * context;
 }
 
-export function graphBytes(model, context) {
+export function graphBytes(model, context, fa = true) {
+  const logits = (model.vocab || DEFAULT_VOCAB) * UBATCH * 4;
+  if (fa) {
+    return logits + context * UBATCH * 2 + 50 * MIB;
+  }
   const heads = model.heads || 32;
-  return ((context / 1024) * 2 + 0.75) * heads * MIB;
+  return logits + context * UBATCH * (heads + 1) * 4;
 }
 
 function kvPrecBytes(kvPrecId) {
@@ -60,14 +75,15 @@ export function publishedQuantFile(model, quantId) {
 // Full estimate (GiB) for a model at a quant + context. When the repo
 // publishes a GGUF file for this quant, its exact size is used for the
 // weights (llama.cpp mmaps the file wholesale) instead of bpw math —
-// `realWeights` reports which one you got.
-export function estimate(model, quantId, context, kvPrecId = "f16") {
+// `realWeights` reports which one you got. `fa` = flash attention (the
+// 2026 default in llama.cpp / LM Studio / Ollama).
+export function estimate(model, quantId, context, kvPrecId = "f16", fa = true) {
   const kvBytes = kvPrecBytes(kvPrecId);
   const ctx = Math.max(0, context);
   const file = publishedQuantFile(model, quantId);
   const w = file ? file.sizeBytes : weightsBytes(model.params, QUANT_BY_ID[quantId].bpw);
   const kv = kvTotalBytes(model, ctx, kvBytes);
-  const oh = graphBytes(model, ctx) + FIXED_OVERHEAD_BYTES;
+  const oh = graphBytes(model, ctx, fa) + FIXED_OVERHEAD_BYTES;
   return {
     weights: w / GIB,
     kv: kv / GIB,
@@ -137,15 +153,15 @@ export function bestQuantThatFits(model, context, hw, margin, kvPrecId, quants) 
 
 // Max context (tokens) at this quant within the comfortable budget.
 // Binary search because KV is piecewise-linear once SWA enters the picture.
-export function maxContext(model, quantId, hw, margin, kvPrecId) {
+export function maxContext(model, quantId, hw, margin, kvPrecId, fa = true) {
   const usable = capacity(hw) * (1 - margin);
   const cap = model.ctxMax || 131072;
-  if (estimate(model, quantId, 0, kvPrecId).total > usable) return 0;
-  if (estimate(model, quantId, cap, kvPrecId).total <= usable) return cap;
+  if (estimate(model, quantId, 0, kvPrecId, fa).total > usable) return 0;
+  if (estimate(model, quantId, cap, kvPrecId, fa).total <= usable) return cap;
   let lo = 0, hi = cap;
   while (hi - lo > 64) {
     const mid = Math.floor((lo + hi) / 2);
-    if (estimate(model, quantId, mid, kvPrecId).total <= usable) lo = mid;
+    if (estimate(model, quantId, mid, kvPrecId, fa).total <= usable) lo = mid;
     else hi = mid;
   }
   return lo;

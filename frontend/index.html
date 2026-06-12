@@ -140,9 +140,11 @@
         <p>
           Weights = parameters × bits-per-weight ÷ 8 (or the <b>exact published GGUF file
           size</b> when available). KV cache = 2 × layers × KV heads × head dimension × bytes ×
-          context tokens — grouped-query-attention aware, using each model's real config.
-          On top of that sits a compute-buffer estimate fitted to real llama.cpp runs plus a
-          fixed runtime overhead. A configurable safety margin separates “fits” from “tight”.
+          context tokens — grouped-query-attention aware, using each model's real config, and
+          allocated upfront for the configured context (as llama.cpp does). The compute buffer
+          assumes <b>flash attention</b> — the llama.cpp / LM Studio / Ollama default since late
+          2025 — so it stays nearly flat as context grows. A configurable safety margin
+          separates “fits” from “tight”.
         </p>
       </details>
       <details>
@@ -176,9 +178,9 @@
   </section>
 
   <footer class="foot-note">
-    Estimates use llama.cpp-style quant sizes, GQA/MLA/sliding-window-aware KV-cache math and a compute-buffer
-    model fitted to real runs. Real usage still varies by engine, batch size and KV settings — treat the line as
-    guidance, not gospel.
+    Estimates use llama.cpp-style quant sizes, GQA/MLA/sliding-window-aware KV-cache math and flash-attention-default
+    compute buffers validated against real llama.cpp runs. Real usage still varies by engine, batch size and KV
+    settings — treat the line as guidance, not gospel.
     <div class="foot-credit">Built by ArgonautDev with ❤️</div>
     <a class="foot-gh" href="https://github.com/Daniele122898/llm-fit-check" target="_blank"
       rel="noopener noreferrer" aria-label="GitHub repository" data-umami-event="github-click">

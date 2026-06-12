@@ -1,0 +1,17 @@
+# App-only variant for servers where an existing nginx is the front door
+# (no Caddy). The app binds to localhost only — reachable solely via nginx.
+#
+#   docker compose -f docker-compose.nginx.yml up -d --build
+#
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      - FITCHECK_DB=/data/fitcheck.db
+      - HF_TOKEN=${HF_TOKEN:-}
+    volumes:
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8400:8400"

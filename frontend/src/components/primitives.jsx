@@ -20,19 +20,24 @@ export function VerdictChip({ level, label, compact }) {
 }
 
 // ---- headroom bar: segmented usage against an available-capacity line ----
-export function HeadroomBar({ weights, kv, overhead, available, height = 10, showCap = true }) {
+// Pass `usable` (= available x (1 - safety margin)) to also draw the amber
+// fits-under threshold the verdicts use.
+export function HeadroomBar({ weights, kv, overhead, available, usable, height = 10, showCap = true }) {
   const total = weights + kv + overhead;
   const max = Math.max(total, available) * 1.04;
   const pct = (v) => (v / max) * 100;
-  const capPct = (available / max) * 100;
   const over = total > available;
   return (
     <div className="hbar" style={{ height }}>
       <div className="hbar-seg" style={{ width: pct(weights) + "%", background: "var(--accent)" }} title={"Weights " + fmtGB(weights)} />
       <div className="hbar-seg" style={{ width: pct(kv) + "%", background: "var(--accent-2)" }} title={"KV cache " + fmtGB(kv)} />
       <div className="hbar-seg" style={{ width: pct(overhead) + "%", background: "var(--ink-faint)" }} title={"Overhead " + fmtGB(overhead)} />
+      {usable != null && usable < available && usable > 0 && (
+        <div className="hbar-margin" style={{ left: pct(usable) + "%" }}
+          title={"Safety margin — “Fits” needs ≤ " + fmtGB(usable)} />
+      )}
       {showCap && (
-        <div className="hbar-cap" style={{ left: capPct + "%", background: over ? "var(--red)" : "var(--border-strong)" }}>
+        <div className="hbar-cap" style={{ left: pct(available) + "%", background: over ? "var(--red)" : "var(--border-strong)" }}>
           <span className="hbar-cap-label" style={{ color: over ? "var(--red)" : "var(--text-faint)" }}>{fmtGBval(available)}</span>
         </div>
       )}

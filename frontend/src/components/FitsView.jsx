@@ -3,7 +3,7 @@ import { Icon, ICONS, VerdictChip, HeadroomBar, Segmented } from "./primitives.j
 import { Breakdown, computeRow } from "./Breakdown.jsx";
 import { QUANTS, QUANT_BY_ID } from "../lib/quants.js";
 import { capacity, estimate, estimateArch, parseParams, isHfUrl, repoFromQuery, CTX_STEPS } from "../lib/calc.js";
-import { fmtGB, fmtGBval, fmtParams, fmtCount, fmtCtx, fmtAgo } from "../lib/format.js";
+import { fmtGB, fmtGBval, fmtParams, fmtCount, fmtCtxStep, fmtAgo } from "../lib/format.js";
 import { fetchTrending, searchModels, resolveRepo } from "../lib/api.js";
 import { CURATED_MODELS } from "../lib/curated.js";
 
@@ -245,7 +245,7 @@ export function FitsView({ s, setS, hw, layout, setLayout }) {
           <Segmented size="sm" value={s.quantId} onChange={setQuant} options={QUANTS.map((q) => ({ id: q.id, label: q.label }))} />
         </div>
         <div className="ctrl ctrl-ctx">
-          <label>Context <span className="mono ctx-val">{fmtCtx(s.context)} tokens</span></label>
+          <label>Context <span className="mono ctx-val">{fmtCtxStep(s.context)}{s.context >= 1048576 ? "" : " tokens"}</span></label>
           <input type="range" className="slider" min={0} max={CTX_STEPS.length - 1} step={1}
             value={Math.max(0, CTX_STEPS.indexOf(s.context))}
             onChange={(e) => setS((p) => ({ ...p, context: CTX_STEPS[Number(e.target.value)] }))} />

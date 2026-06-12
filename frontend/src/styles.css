@@ -160,6 +160,7 @@ a { color: var(--accent-text); text-decoration: none; }
 .hbar-seg { height: 100%; transition: width .35s cubic-bezier(.4,0,.2,1); }
 .hbar-seg:first-child { border-radius: 5px 0 0 5px; }
 .hbar-cap { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 2px; }
+.hbar-margin { position: absolute; top: -2px; bottom: -2px; width: 2px; border-radius: 2px; background: var(--amber); opacity: .75; }
 .hbar-cap-label { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); font-size: 9.5px; font-family: var(--mono); font-weight: 600; white-space: nowrap; }
 
 /* ---- rows (list layout) ---- */

@@ -30,7 +30,7 @@ export function Breakdown({ model, s, hw, setQuant }) {
           </span>
           <span className="bd-bar-tot">{fmtGB(est.total)} <i>/ {fmtGBval(avail)} GB</i></span>
         </div>
-        <HeadroomBar weights={est.weights} kv={est.kv} overhead={est.overhead} available={avail} height={16} />
+        <HeadroomBar weights={est.weights} kv={est.kv} overhead={est.overhead} available={avail} usable={avail * (1 - s.margin)} height={16} />
         <div className="bd-legend">
           <span><i style={{ background: "var(--accent)" }} />Weights {fmtGB(est.weights)}</span>
           <span><i style={{ background: "var(--accent-2)" }} />KV cache {fmtGB(est.kv)}</span>

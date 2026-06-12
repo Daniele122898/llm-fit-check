@@ -198,9 +198,13 @@ export function HardwarePanel({ hw, onChange, onClose, margin, onMargin }) {
             <label>Safety margin</label>
             <span className="mono margin-val">{margin}%</span>
           </div>
-          <input type="range" className="slider" min={0} max={25} step={1} value={margin}
+          <input type="range" className="slider" min={0} max={100} step={1} value={margin}
             onChange={(e) => onMargin(Number(e.target.value))} />
-          <p className="muted-note tiny">Headroom kept free — “Fits” means the total stays under {100 - margin}% of available memory.</p>
+          <p className="muted-note tiny">
+            Headroom kept free. Of your <b>{fmtGBval(capacity(hw))} GB</b> available, models get
+            “Fits” under <b>{fmtGBval(capacity(hw) * (1 - margin / 100))} GB</b> and “Tight” up to the full {fmtGBval(capacity(hw))} GB —
+            shown as the amber line on the memory bars.
+          </p>
         </div>
 
         <div className="modal-foot">

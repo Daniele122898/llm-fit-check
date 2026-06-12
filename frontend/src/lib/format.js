@@ -15,13 +15,20 @@ export function fmtGBval(x) {
 export function fmtTokens(t) {
   if (t == null || isNaN(t)) return "—";
   if (t <= 0) return "0";
+  if (t >= 1000000) return (t / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
   if (t >= 1000) return Math.round(t / 1000) + "K";
   return Math.round(t / 256) * 256 + "";
 }
 
 export function fmtCtx(t) {
+  if (t >= 1048576) return Math.round(t / 1048576) + "M";
   if (t >= 1024) return Math.round(t / 1024) + "K";
   return t + "";
+}
+
+// Context-slider step label: the last step means "anything above 256K".
+export function fmtCtxStep(t) {
+  return t >= 1048576 ? "256K+" : fmtCtx(t);
 }
 
 export function fmtParams(p) {

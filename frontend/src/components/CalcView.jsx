@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Icon, ICONS, VerdictChip, HeadroomBar, Segmented, Stat } from "./primitives.jsx";
 import { QUANTS, QUANT_BY_ID, KV_PRECISIONS } from "../lib/quants.js";
 import { estimate, verdict, maxContext, capacity, estimateArch, CTX_STEPS } from "../lib/calc.js";
-import { fmtGB, fmtGBval, fmtTokens, fmtCtx } from "../lib/format.js";
+import { fmtGB, fmtGBval, fmtTokens, fmtCtxStep } from "../lib/format.js";
 
 function MiniNum({ label, value, onChange, disabled, min = 1, max = 512 }) {
   return (
@@ -37,7 +37,8 @@ export function CalcView({ hw, defaultQuant, margin }) {
   }, [params, autoArch]);
 
   const context = CTX_STEPS[ctxIdx];
-  const model = { params, layers, heads, kvHeads, headDim, ctxMax: 131072, name: "custom" };
+  // Custom model: no known window, so allow the full slider range.
+  const model = { params, layers, heads, kvHeads, headDim, ctxMax: CTX_STEPS[CTX_STEPS.length - 1], name: "custom" };
   const est = estimate(model, quantId, context, kvPrec);
   const v = verdict(est.total, hw, margin);
   const mctx = maxContext(model, quantId, hw, margin, kvPrec);
@@ -74,11 +75,11 @@ export function CalcView({ hw, defaultQuant, margin }) {
           <div className="ci-block">
             <div className="ci-top">
               <label>Context length</label>
-              <span className="mono ci-ctx">{fmtCtx(context)} tokens</span>
+              <span className="mono ci-ctx">{fmtCtxStep(context)}{context >= 1048576 ? "" : " tokens"}</span>
             </div>
             <input type="range" className="slider" min={0} max={CTX_STEPS.length - 1} step={1} value={ctxIdx}
               onChange={(e) => setCtxIdx(Number(e.target.value))} />
-            <div className="ci-scale">{CTX_STEPS.map((c, i) => <span key={c} className={i === ctxIdx ? "on" : ""}>{fmtCtx(c)}</span>)}</div>
+            <div className="ci-scale">{CTX_STEPS.map((c, i) => <span key={c} className={i === ctxIdx ? "on" : ""}>{fmtCtxStep(c)}</span>)}</div>
           </div>
 
           <button className="adv-toggle" onClick={() => setAdvanced(!advanced)}>
@@ -122,7 +123,7 @@ export function CalcView({ hw, defaultQuant, margin }) {
           </div>
 
           <div className="co-bar">
-            <HeadroomBar weights={est.weights} kv={est.kv} overhead={est.overhead} available={avail} height={18} />
+            <HeadroomBar weights={est.weights} kv={est.kv} overhead={est.overhead} available={avail} usable={avail * (1 - margin)} height={18} />
             <div className="bd-legend">
               <span><i style={{ background: "var(--accent)" }} />Weights {fmtGB(est.weights)}</span>
               <span><i style={{ background: "var(--accent-2)" }} />KV cache {fmtGB(est.kv)}</span>

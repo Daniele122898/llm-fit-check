@@ -195,4 +195,7 @@ export function repoFromQuery(q) {
   return parts.length >= 2 ? parts.slice(0, 2).join("/") : null;
 }
 
-export const CTX_STEPS = [2048, 4096, 8192, 16384, 32768, 65536, 131072];
+// Last step is "256K+": represents running above 256K (computed at 1M;
+// per-model math still clamps to each model's real context window).
+export const CTX_STEPS = [2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 1048576];
+export const CTX_PLUS_STEP = 1048576;

@@ -73,23 +73,4 @@ export function Stat({ label, value, sub, accent }) {
   );
 }
 
-// ---- slider + number input row (hardware modal, calculator) ----
-export function ManualRow({ label, value, min, max, step, unit, onChange, hint }) {
-  return (
-    <div className="man-row">
-      <div className="man-row-top">
-        <label>{label}</label>
-        <div className="man-val">
-          <input type="number" value={value} min={min} max={max} step={step}
-            onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))} />
-          <span>{unit}</span>
-        </div>
-      </div>
-      <input type="range" className="slider" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(Number(e.target.value))} />
-      {hint && <p className="muted-note tiny">{hint}</p>}
-    </div>
-  );
-}
-
 export { Icon, ICONS };

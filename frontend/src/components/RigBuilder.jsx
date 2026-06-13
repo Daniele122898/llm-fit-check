@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Icon, ICONS } from "./icons.jsx";
 import { GPUS, ALL_GPUS, GPU_BY_ID, APPLE, VENDOR_BADGE, PLATFORMS } from "../lib/hwCatalog.js";
 import { metalBudget } from "../lib/calc.js";
@@ -30,7 +30,7 @@ function RigRail({ rig, set, totalVram, onScan, onUse, scanning, ctaLabel }) {
             <Icon d={ICONS.stack} size={17} style={{ color: "var(--accent-text)" }} />
             <span className="rig-label">Your rig</span>
           </div>
-          <button className="scan-btn" onClick={onScan} disabled={scanning}>
+          <button className="scan-btn" onClick={onScan} disabled={scanning} data-umami-event="hardware-scan">
             <Icon d={ICONS.spark} size={13} />{scanning ? "Scanning…" : "Scan my machine"}
           </button>
         </div>
@@ -377,7 +377,10 @@ export function RigBuilder({ initialRig, onUse, ctaLabel }) {
   const switchPlatform = (id) => {
     setQuery("");
     setPlatform(id);
+    // CPU / Manual have no "add" action, so commit their mode on tab-switch —
+    // otherwise "Use this rig" would silently keep the previous hardware.
     if (id === "cpu") goCpu();
+    if (id === "manual") pickManual(rig.mode === "manual" ? rig.vram : 24);
   };
 
   const scan = () => {

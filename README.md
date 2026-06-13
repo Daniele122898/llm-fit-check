@@ -1,4 +1,4 @@
-# FitCheck — will the model run on your box?
+# LLM Fit Check — will the model run on your box?
 
 A clean, technical tool that answers one question: **does this LLM fit in your (V)RAM?**
 Set your hardware once, then browse trending Hugging Face models with live green/yellow/red
@@ -11,12 +11,14 @@ frontend/   Vite + React SPA — all memory math runs client-side, instant inter
 backend/    FastAPI — proxies/normalizes the Hugging Face Hub API, caches in SQLite
 ```
 
-- `GET /api/trending` — the front-page blend: live HF `trendingScore` first, then a
-  curated list of famous staples (flagship open-weight families + the GGUF mirrors people
-  actually run) and HF's most-downloaded / most-liked text-generation models, deduped and
-  enriched with param counts (`safetensors.total` / `gguf.total`) and real architecture
-  from `config.json`. The list refreshes every 6 hours; a rate-limited (partial) refresh
-  is served but never cached.
+- `GET /api/trending` — the front-page top-100 blend: live HF `trendingScore` (gated by a
+  download floor + junk filter so merge/image spam doesn't lead), then **self-updating
+  flagship families** (Llama, Qwen, DeepSeek, Gemma, Mistral, Phi, gpt-oss, GLM, Granite,
+  OLMo, SmolLM, Kimi, MiniMax, Nemotron, LFM — each resolved live to its current top repos,
+  so new generations surface with no code change), then HF's most-downloaded / most-liked
+  text-generation models (legacy base models filtered out). Deduped and enriched with param
+  counts (`safetensors.total` / `gguf.total`) and real architecture from `config.json`. The
+  list refreshes every 6 hours; a rate-limited (partial) refresh is served but never cached.
 - `GET /api/search?q=…` — HF model search, enriched the same way. Cached **30 days**.
 - `GET /api/model/{org}/{name}` — resolve one repo (pasted URL). Cached **30 days**.
 
@@ -91,16 +93,27 @@ llama.cpp / Ollama / the NyxKrage calculator actually compute:
 - **MoE**: all parameters must be resident — active params only affect speed. The
   calculator has an "active params" field that says exactly that.
 
-### Hardware capacity
+### The hardware picker (rig builder)
 
-- **Discrete GPUs** check against VRAM. Models that don't fit but whose remainder fits in
-  *free* system RAM get an explicit orange **"Offloads"** verdict (llama.cpp-style layer
-  split — runs, but slowly) showing how many GB would spill.
+Hardware is configured through a **rig builder** — a "rig bar" below the search opens an
+overlay where you assemble your setup from a ~90-GPU catalog (NVIDIA / AMD / Intel across
+consumer, workstation and datacenter — RTX 30/40/50, RTX PRO Blackwell, DGX Spark, Strix
+Halo, Instinct, …) with cross-vendor search by name *or* capacity ("24gb") and category
+filters. You can **stack multiple GPUs** (steppers; VRAM sums), pick an **Apple chip** in
+three steps (generation → variant → unified memory, M1–M5), or choose **CPU-only** / a
+**Manual** VRAM entry. A best-effort "Scan my machine" reads the GPU via WebGL.
+
+The rig is the source of truth; `rigToHw()` derives the shape the memory math consumes:
+
+- **Discrete GPUs** check against summed VRAM. Models that don't fit but whose remainder
+  fits in system RAM get an orange **"Offloads"** verdict (llama.cpp-style layer split —
+  runs, but slowly) showing how many GB would spill. A per-rig **CPU-offload toggle**
+  reveals the system-RAM slider; turning it off makes too-big models simply "Won't fit".
 - **Apple Silicon** uses the macOS GPU wired limit: **2/3 of unified memory below 36 GB,
   3/4 from 36 GB up** (Metal's `recommendedMaxWorkingSetSize`, the cap Ollama/LM Studio
-  respect). On top of that, the hardware panel lets you set how much memory is *actually
-  free right now* — macOS plus your usual apps already hold part of the total — and models
-  are checked against the smaller of the two.
-- **CPU-only** boxes check against free system RAM minus a small OS reserve.
+  respect). Unified systems share one pool, so there's no separate offload.
+- **CPU-only** boxes check against system RAM.
 
-A configurable safety margin (default 10%) separates "Fits" from "Tight".
+A configurable **safety margin** (default 10%, in the rig rail) separates "Fits" from
+"Tight" — it reserves headroom for the OS, other apps and a buffer, which is also how much
+of a unified-memory machine the rest of the system holds onto.

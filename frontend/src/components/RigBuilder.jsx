@@ -385,9 +385,11 @@ export function RigBuilder({ initialRig, onUse, ctaLabel }) {
     setTimeout(() => {
       const match = matchRenderer(detectRenderer());
       if (match?.type === "apple" && match.variant) {
+        // The browser can't read unified-memory size — default to the smallest
+        // option (never over-promise capacity) and ask the user to confirm.
         const v = match.variant, gen = match.gen;
-        pickApple({ genId: gen.id, genName: gen.name, variantId: v.id, variantName: v.name, gpu: v.gpu, ram: v.ram[v.ram.length - 1] });
-        setPlatform("apple"); flash(`Detected ${v.name}`);
+        pickApple({ genId: gen.id, genName: gen.name, variantId: v.id, variantName: v.name, gpu: v.gpu, ram: v.ram[0] });
+        setPlatform("apple"); flash(`Detected ${v.name} — set your memory`);
       } else if (match?.type === "apple") { setPlatform("apple"); flash("Apple Silicon — pick your chip");
       } else if (match?.type === "discrete") { addGpu(match.gpu.id); setPlatform(match.gpu.vendor); flash(`Detected ${match.gpu.name}`);
       } else { setPlatform("manual"); flash("GPU masked — enter it manually"); }

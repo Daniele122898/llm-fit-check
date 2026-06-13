@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Icon, ICONS } from "./components/icons.jsx";
-import { HardwareChip, HardwarePanel } from "./components/HardwarePanel.jsx";
+import { RigBar, RigOverlay } from "./components/RigBar.jsx";
 import { FitsView } from "./components/FitsView.jsx";
 import { CalcView } from "./components/CalcView.jsx";
-import { defaultHw } from "./lib/hardware.js";
+import { defaultRig, rigToHw } from "./lib/rig.js";
 
 function load(key, fallback) {
   try {
@@ -19,10 +19,9 @@ function persist(key, value) {
 
 export default function App() {
   const [tab, setTab] = useState("fits");
-  const [hw, setHw] = useState(() => ({ ...defaultHw(), ...load("fitcheck_hw", {}) }));
-  const [panel, setPanel] = useState(false);
+  const [rig, setRig] = useState(() => ({ ...defaultRig(), ...load("fitcheck_rig", {}) }));
+  const [editing, setEditing] = useState(false);
   const [layout, setLayout] = useState(() => load("fitcheck_layout", "list"));
-  const [margin, setMargin] = useState(() => load("fitcheck_margin", 10));
   const [settings, setSettings] = useState(() => ({
     quantId: "Q4_K_M", context: 8192, kvPrec: "f16",
     ...load("fitcheck_settings", {}),
@@ -31,12 +30,15 @@ export default function App() {
   // Reveal the static SEO/footer HTML (hidden for first paint — see index.html)
   useEffect(() => { document.documentElement.classList.add("app-ready"); }, []);
 
-  useEffect(() => persist("fitcheck_hw", hw), [hw]);
+  useEffect(() => persist("fitcheck_rig", rig), [rig]);
   useEffect(() => persist("fitcheck_layout", layout), [layout]);
-  useEffect(() => persist("fitcheck_margin", margin), [margin]);
   useEffect(() => persist("fitcheck_settings", settings), [settings]);
 
-  const s = { ...settings, margin: margin / 100 };
+  const hw = useMemo(() => rigToHw(rig), [rig]);
+  const margin = (rig.margin ?? 10) / 100;
+  const s = { ...settings, margin };
+
+  const applyRig = (next) => { setRig(next); setEditing(false); };
 
   return (
     <div className="app">
@@ -47,9 +49,6 @@ export default function App() {
             <h1 className="brand-name"><span className="brand-llm">LLM</span> Fit Check</h1>
             <span className="brand-tag">will the model run on your box?</span>
           </div>
-        </div>
-        <div className="topbar-right">
-          <HardwareChip hw={hw} onClick={() => setPanel(true)} />
         </div>
       </header>
 
@@ -69,17 +68,14 @@ export default function App() {
 
       <main className="main">
         {tab === "fits"
-          ? <FitsView s={s} setS={setSettings} hw={hw} layout={layout} setLayout={setLayout} />
-          : <CalcView hw={hw} defaultQuant={settings.quantId} margin={margin / 100} />}
+          ? <FitsView s={s} setS={setSettings} hw={hw} rig={rig} onEditRig={() => setEditing(true)} layout={layout} setLayout={setLayout} />
+          : <CalcView hw={hw} rig={rig} onEditRig={() => setEditing(true)} defaultQuant={settings.quantId} margin={margin} />}
       </main>
 
       {/* The about/FAQ section and footer live as static HTML in index.html so
           non-JS crawlers (Bing, AI search bots) can read them. */}
 
-      {panel && (
-        <HardwarePanel hw={hw} onChange={setHw} onClose={() => setPanel(false)}
-          margin={margin} onMargin={setMargin} />
-      )}
+      {editing && <RigOverlay rig={rig} onApply={applyRig} onClose={() => setEditing(false)} />}
     </div>
   );
 }

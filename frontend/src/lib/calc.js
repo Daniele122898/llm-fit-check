@@ -106,24 +106,21 @@ export function metalBudget(ramGB) {
   return ramGB >= 36 ? ramGB * 0.75 : ramGB * (2 / 3);
 }
 
-// What we can actually load the model into. `freeRam` is the user-declared
-// "actually free right now" memory — on unified/CPU systems the OS and open
-// apps already hold part of the total, so the effective budget is
-// min(theoretical budget, what's really free).
+// What we can load the model into. The safety margin (applied in `verdict`)
+// reserves headroom for the OS, other apps and a buffer — so capacity here is
+// the raw theoretical budget. Apple uses the macOS GPU wired limit.
 export function capacity(hw) {
-  const free = hw.freeRam ?? hw.ram;
-  if (hw.type === "apple") return Math.min(metalBudget(hw.ram), free);
-  if (hw.type === "cpu") return Math.max(1, Math.min(hw.ram - 2, free));
+  if (hw.type === "apple") return metalBudget(hw.ram);
+  if (hw.type === "cpu") return hw.ram;
   return hw.vram;
 }
 
 // Spare system RAM a discrete GPU could spill layers into (CPU offload).
-// Unified/CPU systems have a single pool — nothing extra to spill into.
-// Users can switch offload consideration off entirely (hw.allowOffload).
+// Unified/CPU systems share one pool — nothing extra to spill into. Users can
+// switch offload off entirely (hw.allowOffload === false).
 export function spillCapacity(hw) {
   if (hw.type === "apple" || hw.type === "cpu" || hw.allowOffload === false) return 0;
-  const free = hw.freeRam ?? hw.ram ?? 0;
-  return Math.max(0, Math.min(hw.ram ?? 0, free));
+  return Math.max(0, hw.ram ?? 0);
 }
 
 // Verdict levels: fit | tight | offload | no.

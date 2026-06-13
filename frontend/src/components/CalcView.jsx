@@ -3,6 +3,7 @@ import { Icon, ICONS, VerdictChip, HeadroomBar, Segmented, Stat } from "./primit
 import { QUANTS, QUANT_BY_ID, KV_PRECISIONS } from "../lib/quants.js";
 import { estimate, verdict, maxContext, capacity, estimateArch, CTX_STEPS } from "../lib/calc.js";
 import { fmtGB, fmtGBval, fmtTokens, fmtCtxStep } from "../lib/format.js";
+import { RigBar } from "./RigBar.jsx";
 
 function MiniNum({ label, value, onChange, disabled, min = 1, max = 512 }) {
   return (
@@ -14,7 +15,7 @@ function MiniNum({ label, value, onChange, disabled, min = 1, max = 512 }) {
   );
 }
 
-export function CalcView({ hw, defaultQuant, margin }) {
+export function CalcView({ hw, rig, onEditRig, defaultQuant, margin }) {
   const [params, setParams] = useState(8);
   const [quantId, setQuantId] = useState(defaultQuant || "Q4_K_M");
   const [ctxIdx, setCtxIdx] = useState(2); // 8192
@@ -47,6 +48,7 @@ export function CalcView({ hw, defaultQuant, margin }) {
 
   return (
     <div className="calc">
+      <RigBar rig={rig} onEdit={onEditRig} />
       <div className="calc-grid">
         {/* inputs */}
         <div className="calc-inputs">

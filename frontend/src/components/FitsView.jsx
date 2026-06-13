@@ -6,6 +6,10 @@ import { capacity, estimate, estimateArch, parseParams, isHfUrl, repoFromQuery, 
 import { fmtGB, fmtGBval, fmtParams, fmtCount, fmtCtxStep, fmtAgo } from "../lib/format.js";
 import { fetchTrending, searchModels, resolveRepo } from "../lib/api.js";
 import { CURATED_MODELS } from "../lib/curated.js";
+import { RigBar } from "./RigBar.jsx";
+
+// Each sort key's natural starting direction; the ↑/↓ button flips it.
+const SORT_DEFAULT_DIR = { trend: "asc", fit: "asc", size: "asc", params: "asc", downloads: "desc", likes: "desc", name: "asc" };
 
 function offloadLabel(v) {
   return v.level === "offload" ? "Offloads" : v.label;
@@ -131,14 +135,15 @@ function searchCurated(q) {
 }
 
 // ---- the whole view ----
-export function FitsView({ s, setS, hw, layout, setLayout }) {
+export function FitsView({ s, setS, hw, rig, onEditRig, layout, setLayout }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState(null);     // null = not searching
   const [searchState, setSearchState] = useState("idle"); // idle | busy | done | error
   const [searchNote, setSearchNote] = useState("");
   const [trendingData, setTrendingData] = useState(null);
   const [trendingState, setTrendingState] = useState("loading"); // loading | live | offline
-  const [sort, setSort] = useState("trend");
+  const [sortKey, setSortKey] = useState("trend");
+  const [sortDir, setSortDir] = useState("asc");
   const [onlyFit, setOnlyFit] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const timer = useRef(null);
@@ -207,22 +212,29 @@ export function FitsView({ s, setS, hw, layout, setLayout }) {
   const base = results != null ? results : trendingModels;
 
   const list = useMemo(() => {
+    const FIT_ORDER = { fit: 0, tight: 1, offload: 2, no: 3 };
+    const metric = (m) => {
+      if (sortKey === "trend") return m.trend || 999;
+      if (sortKey === "fit") return FIT_ORDER[computeRow(m, s, hw).v.level];
+      if (sortKey === "size") return computeRow(m, s, hw).est.total;
+      if (sortKey === "params") return m.params || 0;
+      if (sortKey === "downloads") return m.downloads || 0;
+      if (sortKey === "likes") return m.likes || 0;
+      return 0;
+    };
     let arr = base.slice();
     if (onlyFit) arr = arr.filter((m) => computeRow(m, s, hw).v.level !== "no");
     arr.sort((a, b) => {
-      if (sort === "trend") return (a.trend || 99) - (b.trend || 99);
-      if (sort === "size") return computeRow(a, s, hw).est.total - computeRow(b, s, hw).est.total;
-      if (sort === "params") return a.params - b.params;
-      if (sort === "popular") return (b.downloads || 0) - (a.downloads || 0);
-      if (sort === "fit") {
-        const order = { fit: 0, tight: 1, offload: 2, no: 3 };
-        return order[computeRow(a, s, hw).v.level] - order[computeRow(b, s, hw).v.level] || a.params - b.params;
-      }
-      return 0;
+      let r = sortKey === "name"
+        ? (a.name || "").localeCompare(b.name || "")
+        : metric(a) - metric(b);
+      if (r === 0 && sortKey !== "params") r = (a.params || 0) - (b.params || 0); // stable tiebreak
+      return sortDir === "asc" ? r : -r;
     });
     return arr;
-  }, [base, sort, onlyFit, s, hw]);
+  }, [base, sortKey, sortDir, onlyFit, s, hw]);
 
+  const pickSort = (k) => { setSortKey(k); setSortDir(SORT_DEFAULT_DIR[k]); };
   const setQuant = (id) => setS((p) => ({ ...p, quantId: id }));
   const fitCount = useMemo(() => base.filter((m) => computeRow(m, s, hw).v.level !== "no").length, [base, s, hw]);
 
@@ -240,6 +252,9 @@ export function FitsView({ s, setS, hw, layout, setLayout }) {
         {searchState === "done" && <div className="search-status">{searchNote}</div>}
         {searchState === "error" && <div className="search-status warn">{searchNote}</div>}
       </div>
+
+      {/* hardware rig bar — the primary input for this page */}
+      <RigBar rig={rig} onEdit={onEditRig} />
 
       {/* global controls */}
       <div className="controls">
@@ -280,13 +295,20 @@ export function FitsView({ s, setS, hw, layout, setLayout }) {
           </label>
           <div className="sort">
             <span>Sort</span>
-            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <select value={sortKey} onChange={(e) => pickSort(e.target.value)}>
               <option value="trend">Trending</option>
-              <option value="fit">Fit first</option>
-              <option value="size">Memory ↑</option>
-              <option value="params">Params ↑</option>
-              <option value="popular">Most downloaded</option>
+              <option value="fit">Fit</option>
+              <option value="size">Memory</option>
+              <option value="params">Params</option>
+              <option value="downloads">Downloads</option>
+              <option value="likes">Likes</option>
+              <option value="name">Name</option>
             </select>
+            <button className="sort-dir" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+              title={sortDir === "asc" ? "Ascending — click for descending" : "Descending — click for ascending"}
+              aria-label="Toggle sort direction">
+              <Icon d={ICONS.chevron} size={14} style={{ transform: sortDir === "asc" ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+            </button>
           </div>
           <Segmented size="sm" value={layout} onChange={setLayout} options={["list", "table", "cards"]} />
         </div>

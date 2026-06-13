@@ -143,11 +143,13 @@ class HfClient:
         async with self._sem:
             return await self._client.get(path, params=params)
 
-    async def list_models(self, *, search=None, pipeline_tag="text-generation",
+    async def list_models(self, *, search=None, author=None, pipeline_tag="text-generation",
                           sort=None, limit=30) -> list[dict]:
         params = {"limit": limit}
         if search:
             params["search"] = search
+        if author:
+            params["author"] = author
         if pipeline_tag:
             params["pipeline_tag"] = pipeline_tag
         if sort:
@@ -156,6 +158,35 @@ class HfClient:
         if r.status_code != 200:
             raise HfError(r.status_code, r.text[:200])
         return r.json()
+
+    async def family_flagships(self, author: str, match=None, take=4, scan=14) -> list[str]:
+        """Current top text-gen repos for an org, by trendingScore — self-
+        updating, so a new generation (Qwen3 -> Qwen3.6) surfaces without code
+        changes, and canonical repos outrank their FP8/GGUF mirrors. `match` is
+        a case-insensitive name substring for orgs that publish more than LLMs
+        (google->gemma, microsoft->phi). Returns [] on any error so one bad
+        family never sinks the trending blend."""
+        try:
+            raw = await self.list_models(author=author, sort="trendingScore", limit=scan)
+        except (HfError, httpx.HTTPError):
+            return []
+        m = match.lower() if match else None
+        out = []
+        for item in raw:
+            rid = item.get("id", "")
+            name = rid.split("/")[-1].lower()
+            if m and m not in name:
+                continue
+            # skip non-chat byproducts that still tag as text-generation
+            if any(t in name for t in (
+                "gguf", "-vl", "-vision", "audio", "-omni", "litert",
+                "safeguard", "guard", "embed", "rerank", "-rm", "reward",
+            )):
+                continue
+            out.append(rid)
+            if len(out) >= take:
+                break
+        return out
 
     async def model_info(self, repo_id: str) -> dict:
         r = await self._get(f"/api/models/{repo_id}")

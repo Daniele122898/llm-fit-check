@@ -147,7 +147,7 @@ export function FitsView({ s, setS, hw, layout, setLayout }) {
   // trending front page
   useEffect(() => {
     let cancelled = false;
-    fetchTrending(60)
+    fetchTrending(100)
       .then((d) => { if (!cancelled) { setTrendingData(d); setTrendingState("live"); } })
       .catch(() => { if (!cancelled) setTrendingState("offline"); });
     return () => { cancelled = true; };

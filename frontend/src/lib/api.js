@@ -18,7 +18,7 @@ async function getJSON(url, timeoutMs = 20000) {
   }
 }
 
-export function fetchTrending(limit = 30) {
+export function fetchTrending(limit = 100) {
   return getJSON(`/api/trending?limit=${limit}`, 45000);
 }
 
